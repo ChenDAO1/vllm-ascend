@@ -10,6 +10,9 @@ entries so the bisect reproduces the real nightly environment.
 > [`BISECT_PARAMS.md`](./BISECT_PARAMS.md)，UT 设计与结果见
 > [`UT_REPORT_zh.md`](./UT_REPORT_zh.md)。
 
+参数透传的功能特性与技术规格见
+[专项文档](./PARAMETER_PASSTHROUGH_FEATURE_SPEC_zh.md)。
+
 ## How it works
 
 ```text

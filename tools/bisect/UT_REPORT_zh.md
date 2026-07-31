@@ -10,7 +10,7 @@
 
 同时纳入其前置依赖 `b68bd0ee`：按 nightly/weekly 与 SoC 拆分 good table，使 AOP 能选择正确的成功基线；`ec75937d` 负责发布对应 artifact。
 
-当前 bisect UT 共 70 项，本地 Windows 全部执行通过。AOP Shell 测试在 Windows 显式使用 Git for Windows Bash，在 Linux 使用系统 Bash。本次新增 14 项测试，重点补齐运行时环境管理、参数契约、多节点失败同步，以及从 AOP Shell 到 `report.json` 的全链路仿真。
+当前 bisect UT 共 80 项，本地 Windows 全部执行通过。AOP Shell 测试在 Windows 显式使用 Git for Windows Bash，在 Linux 使用系统 Bash。其中新增 10 项参数透传专项 UT，覆盖生产评论解析、默认值、非法输入和全部传输层协议一致性。
 
 ## 2. 触发路径
 
@@ -66,6 +66,7 @@ PR 评论 /nightly 或 /weekly
 - `test_auto_bisect.py`：将原参数测试扩展为 11 个 AOP 参数与 env table 的完整 CLI 映射。
 - `test_full_chain.py`：使用四个真实 Git 提交和真实 CSV 表，贯通 CLI、good baseline、环境继承、端点验证、二分收敛及最终报告；仅 mock 构建与 NPU case 执行。
 - `test_aop_shell_chain.py`：Windows Git Bash/Linux Bash 下真实运行 AOP Shell，验证 11 个二分控制参数及 good/env table 参数无丢失、无错误拆词地到达 Python CLI。
+- `test_parameter_passthrough.py`：直接提取并执行 workflow 中的生产 Bash 评论解析逻辑，覆盖完整/默认 JSON、7 类非法输入，并检查 6 个 schedule、5 个 reusable workflow、2 个 LWS 模板、Shell 与 argparse 的字段一致性。
 
 既有 56 项继续覆盖二分中点选择、候选提交、构建决策、good/env table、协调器、runner 入口、状态恢复、报告与 verdict。
 
@@ -84,7 +85,7 @@ python -m pytest -q `
 
 ```text
 ....................................................................     [100%]
-70 passed
+80 passed in 13.32s
 ```
 
 静态检查：`git diff --check` 通过，无空白错误。
