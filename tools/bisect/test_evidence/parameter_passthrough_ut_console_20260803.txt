@@ -1,8 +1,8 @@
-Started: 2026-08-03T02:18:16+08:00
-Finished: 2026-08-03T02:18:25+08:00
+Started: 2026-08-03T02:40:55+08:00
+Finished: 2026-08-03T02:41:15+08:00
 Repository: C:\project\tmp\chendao\vllm-ascend
 Branch: codex/split-good-table-frequency_ut
-HEAD: f4bcef6f
+HEAD: 1404541f
 Platform: Windows-11-10.0.26200-SP0
 Python: 3.12.13
 Command: C:\Users\chenzeyu\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m pytest -vv -p no:cacheprovider --confcutdir=tests/ut/tools/bisect --basetemp=.tmp-parameter-passthrough tests/ut/tools/bisect/test_parameter_passthrough.py tests/ut/tools/bisect/test_auto_bisect.py::test_parse_args_maps_extended_aop_parameters tests/ut/tools/bisect/test_aop_shell_chain.py::test_aop_shell_forwards_complete_bisect_contract
@@ -12,21 +12,41 @@ Exit code: 0
 platform win32 -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\chenzeyu\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
 rootdir: C:\project\tmp\chendao\vllm-ascend
 configfile: pyproject.toml
-collecting ... collected 14 items
+collecting ... collected 34 items
 
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_emits_complete_json_contract PASSED [  7%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_preserves_transport_defaults PASSED [ 14%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --trial-timeout 1 --aop_enabled-must appear after --aop_enabled] PASSED [ 21%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --trial-timeout --no-verify-good-requires a value] PASSED [ 28%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --good-commit xyz-7-40 character hexadecimal] PASSED [ 35%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --fail-confirm-retries -1-non-negative integer] PASSED [ 42%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --trial-timeout 0-positive numbers] PASSED [ 50%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --native-check since-build-unknown option] PASSED [ 57%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --no-assume-built-head-unknown option] PASSED [ 64%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --config-base-path tests/e2e/nightly/single_node/configs-unknown option] PASSED [ 71%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_parameter_contract_is_present_at_every_transport_layer PASSED [ 78%]
-tests/ut/tools/bisect/test_parameter_passthrough.py::test_system_managed_options_are_not_user_parameters PASSED [ 85%]
-tests/ut/tools/bisect/test_auto_bisect.py::test_parse_args_maps_extended_aop_parameters PASSED [ 92%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_emits_complete_json_contract PASSED [  2%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_preserves_transport_defaults PASSED [  5%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--good-commit ABCDEF1-good_commit-ABCDEF1] PASSED [  8%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--bad-commit 1234567-bad_commit-1234567] PASSED [ 11%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--fail-confirm-retries 0-fail_confirm_retries-0] PASSED [ 14%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--trial-timeout 0.5-trial_timeout-0.5] PASSED [ 17%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--barrier-timeout 3600-barrier_timeout-3600] PASSED [ 20%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--no-verify-good-no_verify_good-True] PASSED [ 23%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--no-verify-bad-no_verify_bad-True] PASSED [ 26%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_transports_each_public_option_independently[--force-initial-build-force_initial_build-True] PASSED [ 29%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_keeps_normal_arguments_and_literal_globs PASSED [ 32%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[--aop_enabled case-a-must appear after at least one test case] PASSED [ 35%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --trial-timeout 1 --aop_enabled-must appear after --aop_enabled] PASSED [ 38%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --trial-timeout --no-verify-good-requires a value] PASSED [ 41%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --good-commit-requires a value] PASSED [ 44%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --bad-commit-requires a value] PASSED [ 47%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --fail-confirm-retries-requires a value] PASSED [ 50%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --barrier-timeout-requires a value] PASSED [ 52%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --good-commit xyz-7-40 character hexadecimal] PASSED [ 55%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --bad-commit xyz-HEAD or a 7-40 character hexadecimal] PASSED [ 58%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --fail-confirm-retries -1-non-negative integer] PASSED [ 61%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --fail-confirm-retries 1.5-non-negative integer] PASSED [ 64%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --trial-timeout 0-positive numbers] PASSED [ 67%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --trial-timeout -1-positive numbers] PASSED [ 70%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --barrier-timeout 0-positive numbers] PASSED [ 73%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --unknown-option-unknown option] PASSED [ 76%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --native-check since-build-unknown option] PASSED [ 79%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --no-assume-built-head-unknown option] PASSED [ 82%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_comment_parser_rejects_invalid_bisect_options[case-a --aop_enabled --config-base-path tests/e2e/nightly/single_node/configs-unknown option] PASSED [ 85%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_parameter_contract_is_present_at_every_transport_layer PASSED [ 88%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_workflow_dispatch_uses_one_json_transport_field PASSED [ 91%]
+tests/ut/tools/bisect/test_parameter_passthrough.py::test_system_managed_options_are_not_user_parameters PASSED [ 94%]
+tests/ut/tools/bisect/test_auto_bisect.py::test_parse_args_maps_extended_aop_parameters PASSED [ 97%]
 tests/ut/tools/bisect/test_aop_shell_chain.py::test_aop_shell_forwards_complete_bisect_contract PASSED [100%]
 
-============================= 14 passed in 8.50s ==============================
+============================= 34 passed in 19.48s =============================

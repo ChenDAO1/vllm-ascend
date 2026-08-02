@@ -44,6 +44,45 @@ PR 评论 /nightly 或 /weekly
 3. **最终 CLI 层**：调用真实 `_parse_args`，确认 AOP 参数能转换为 `auto_bisect` 的最终字段和值。
 4. **AOP Shell 执行层**：使用 Git for Windows Bash 真实运行 `aop_process.sh`，以 fake Python 捕获最终 argv，验证参数边界和值没有丢失。
 
+### 2.1 覆盖矩阵
+
+| 功能点 | 默认值 | 独立正向值 | 完整组合 | 非法/边界 | workflow 映射 | Shell argv | argparse |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `good_commit` | ✓ 空字符串 | ✓ 大写 7 位 SHA | ✓ | ✓ 缺值、非十六进制 | ✓ | ✓ | ✓ |
+| `bad_commit` | ✓ `HEAD` | ✓ 7 位 SHA | ✓ | ✓ 缺值、非 HEAD/SHA | ✓ | ✓ | ✓ |
+| `fail_confirm_retries` | ✓ 空字符串 | ✓ 下边界 0 | ✓ | ✓ 缺值、负数、小数 | ✓ | ✓ | ✓ int |
+| `trial_timeout` | ✓ 空字符串 | ✓ 小数 0.5 | ✓ | ✓ flag 截断、0、负数 | ✓ | ✓ | ✓ number |
+| `barrier_timeout` | ✓ 空字符串 | ✓ 整数 3600 | ✓ | ✓ 缺值、0 | ✓ | ✓ | ✓ number |
+| `no_verify_good` | ✓ false | ✓ true | ✓ | ✓ 作为 pending 截断边界 | ✓ | ✓ | ✓ bool |
+| `no_verify_bad` | ✓ false | ✓ true | ✓ | — flag 无值域 | ✓ | ✓ | ✓ bool |
+| `force_initial_build` | ✓ false | ✓ true | ✓ | — flag 无值域 | ✓ | ✓ | ✓ bool |
+| 普通 nightly/weekly 参数 | 不适用 | ✓ case/branch/a3-560t/glob | ✓ 与二分参数交错 | ✓ AOP 前无 case、错误顺序、未知 option | 不受影响 | 不适用 | 不适用 |
+| 系统管理参数 | 不由用户设置 | 不允许 | 不适用 | ✓ 三项均拒绝 | ✓ 不暴露 | ✓ 系统固定值保留 | ✓ 内部可解析 |
+
+`—` 表示该项没有独立值域：Boolean flag 的合法状态只有“不出现=false”和“出现=true”，两种状态已分别由默认与独立正向用例覆盖。
+
+### 2.2 测试真实性与防止假通过
+
+- 评论解析测试执行从生产 YAML 动态提取的 Bash，不复制解析算法。
+- 正向测试断言完整 JSON key 集合、具体值和 Boolean 类型，不能只凭返回码 0 通过。
+- 反向测试同时断言非零返回码和特定错误信息，不能因无关异常而假通过。
+- 静态协议测试对每个参数、每个工作流入口循环断言，并单独禁止旧的 8 个 dispatch 字段。
+- Shell 测试运行生产脚本；fake Python 只记录 argv，不参与组装或转换。
+- argparse 测试调用生产 `_parse_args`，验证数值和 Boolean 的最终 Python 类型。
+
+### 2.3 “真实执行”与“静态检查”的边界
+
+| 链路段 | 本地 UT 方法 | 是否执行生产代码 |
+|---|---|---:|
+| `/nightly`/`/weekly` 前缀之后的 token 解析 | 提取 workflow 内 Bash 并由 Git Bash 执行 | 是 |
+| `bisect_args_json` 生成 | 同一生产 Bash 生成并用 `json.loads` 校验 | 是 |
+| GitHub workflow_dispatch 网络调用 | 检查真实 YAML 的 `-f bisect_args_json` 契约 | 否，静态检查 |
+| schedule 的 `fromJSON` 到 reusable inputs | 遍历 6 个真实 schedule 文件检查映射 | 否，静态检查 |
+| single/multi-node/LWS 字段存在性 | 遍历真实 workflow、模板和 Shell | 否，静态检查 |
+| `aop_process.sh` 到 Python argv | Bash 真实执行生产 Shell，捕获完整 argv | 是 |
+| `auto_bisect` CLI 类型转换 | 调用生产 `_parse_args` | 是 |
+| GitHub webhook、Pod、NPU case、真实二分构建 | 不属于本地 UT | 否，需 CI/E2E |
+
 ## 3. 执行环境与命令
 
 | 项目 | 值 |
@@ -51,7 +90,7 @@ PR 评论 /nightly 或 /weekly
 | 执行日期 | 2026-08-03（Asia/Shanghai） |
 | 仓库 | `C:\project\tmp\chendao\vllm-ascend` |
 | 分支 | `codex/split-good-table-frequency_ut` |
-| 被测 HEAD | `f4bcef6f` |
+| 被测 HEAD | `1404541f` |
 | 系统 | Windows 11（10.0.26200） |
 | Python | 3.12.13 |
 | pytest | 9.1.1 |
@@ -70,50 +109,70 @@ python -m pytest -vv -p no:cacheprovider `
 执行结果：
 
 ```text
-collected 14 items
-14 passed in 8.50s
+collected 34 items
+34 passed in 19.48s
 ```
 
 原始控制台日志保存在
-[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)。两张截图均由本次 pytest 原始 stdout 同源生成：第一张保留执行时间、仓库、分支、HEAD、命令、退出码和汇总，第二张展示 14 个 pytest 展开项的逐项结果；截图内容可由原始日志复核。
+[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)。汇总截图和 34 张逐项截图均由本次 pytest 原始 stdout 同源生成；截图内容可由原始日志复核。
 
 ### 3.1 实际执行步骤
 
-1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `f4bcef6f`。
+1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `1404541f`。
 2. 使用 `--confcutdir=tests/ut/tools/bisect` 隔离与本专项无关的顶层 NPU/Torch fixture。
 3. 显式选择 `test_parameter_passthrough.py`，只运行评论解析、默认值、异常校验和跨层协议检查。
 4. 单独选择 `test_parse_args_maps_extended_aop_parameters`，验证透传结束后的真实 argparse 结果。
 5. 单独选择 `test_aop_shell_forwards_complete_bisect_contract`，通过 Git Bash 执行生产 `aop_process.sh`；脚本内部调用 fake Python，记录并断言最终 argv。
-6. pytest 收集 14 个参数化展开项，逐项执行，最终返回码为 0。
+6. pytest 收集 34 个参数化展开项，逐项执行，最终返回码为 0。
 
 执行命令、Python/pytest版本、收集数量和最终结果截图：
 
 ![参数透传专项UT执行命令与汇总](./test_evidence/parameter_passthrough_ut_execution_20260803.png)
 
-14个用例逐项执行结果截图：
+34 个用例逐项执行结果汇总截图：
 
 ![参数透传专项UT逐项结果](./test_evidence/parameter_passthrough_ut_cases_20260803.png)
 
 ## 4. 逐项过程与结果
 
-以下 14 项是 pytest 参数化展开后的实际执行项。每一项均内嵌本次执行产生的独立截图；截图中的 pytest node ID、进度、被测 HEAD 和退出码可与原始控制台日志交叉核对。
+以下 34 项是 pytest 参数化展开后的实际执行项。每一项均内嵌本次执行产生的独立截图；截图中的 pytest node ID、进度、被测 HEAD 和退出码可与原始控制台日志交叉核对。
 
 | # | 测试项 | 测试过程 | 预期结果 | 实际结果与独立截图 |
 |---:|---|---|---|---|
-| 1 | 完整评论参数生成 JSON | 执行生产评论解析脚本，输入 good/bad、重试、两个超时、两个端点开关和首次构建开关 | 8 个字段全部进入 `bisect_args_json`，字符串和 Boolean 类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_01_20260803.png" alt="UT 01 执行截图" width="520"> |
-| 2 | 无可选参数保持默认值 | 输入 `case-a --aop_enabled` | good 为空、bad 为 `HEAD`、可选数字为空、三个 flag 为 `false` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_02_20260803.png" alt="UT 02 执行截图" width="520"> |
-| 3 | 二分参数位于 AOP 开关前 | 输入 `case-a --trial-timeout 1 --aop_enabled` | 拒绝并报告参数必须位于 `--aop_enabled` 后 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_03_20260803.png" alt="UT 03 执行截图" width="520"> |
-| 4 | 值参数缺值 | 输入 `case-a --aop_enabled --trial-timeout --no-verify-good` | 拒绝并报告 `--trial-timeout requires a value` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_04_20260803.png" alt="UT 04 执行截图" width="520"> |
-| 5 | good commit 格式非法 | 输入 `--good-commit xyz` | 拒绝非 7～40 位十六进制 SHA | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_05_20260803.png" alt="UT 05 执行截图" width="520"> |
-| 6 | retry 为负数 | 输入 `--fail-confirm-retries -1` | 拒绝非负整数以外的值 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_06_20260803.png" alt="UT 06 执行截图" width="520"> |
-| 7 | timeout 为零 | 输入 `--trial-timeout 0` | 拒绝非正数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_07_20260803.png" alt="UT 07 执行截图" width="520"> |
-| 8 | 用户传入 `--native-check` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_08_20260803.png" alt="UT 08 执行截图" width="520"> |
-| 9 | 用户传入 `--no-assume-built-head` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_09_20260803.png" alt="UT 09 执行截图" width="520"> |
-| 10 | 用户传入 `--config-base-path` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_10_20260803.png" alt="UT 10 执行截图" width="520"> |
-| 11 | 跨传输层字段契约 | 对 6 个 schedule、5 个 reusable workflow、LWS、Shell 和 argparse 逐字段扫描 | 8 个用户参数在每层均存在，JSON/input/env/CLI 命名映射一致 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_11_20260803.png" alt="UT 11 执行截图" width="520"> |
-| 12 | 系统管理参数隔离 | 检查评论协议、JSON、Workflow 和 AOP Shell | 三个内部参数不向用户暴露；native 策略固定，配置路径只由系统传递 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_12_20260803.png" alt="UT 12 执行截图" width="520"> |
-| 13 | `auto_bisect` 最终解析 | 直接向真实 `_parse_args` 传递完整 AOP CLI 参数 | 最终 Namespace 中所有参数的值和类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_13_20260803.png" alt="UT 13 执行截图" width="520"> |
-| 14 | AOP Shell 完整透传 | 使用 Git Bash 真实运行 `aop_process.sh`，fake Python 捕获 update-table 与 auto-bisect argv | 用户8参数、good/env table、内部配置路径和固定 native 策略无丢失、无拆词 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_14_20260803.png" alt="UT 14 执行截图" width="520"> |
+| 1 | 完整 8 参数生成 JSON | 同时输入全部公开参数 | JSON 字段、值和类型完全相等 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_01_20260803.png" alt="UT 01" width="520"> |
+| 2 | 默认值 | 仅输入 `case-a --aop_enabled` | 8 字段完整且保持约定默认值 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_02_20260803.png" alt="UT 02" width="520"> |
+| 3 | `good_commit` 独立透传 | 输入大写 7 位 SHA `ABCDEF1` | 保持原值进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_03_20260803.png" alt="UT 03" width="520"> |
+| 4 | `bad_commit` 独立透传 | 输入 `1234567` | 覆盖默认 `HEAD` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_04_20260803.png" alt="UT 04" width="520"> |
+| 5 | retry 下边界 | 输入 `--fail-confirm-retries 0` | 接受非负整数 0 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_05_20260803.png" alt="UT 05" width="520"> |
+| 6 | trial timeout 小数 | 输入 `0.5` | 保留小数文本 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_06_20260803.png" alt="UT 06" width="520"> |
+| 7 | barrier timeout 整数 | 输入 `3600` | 正确进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_07_20260803.png" alt="UT 07" width="520"> |
+| 8 | `no_verify_good` | 单独启用 flag | JSON Boolean 为 `true` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_08_20260803.png" alt="UT 08" width="520"> |
+| 9 | `no_verify_bad` | 单独启用 flag | JSON Boolean 为 `true` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_09_20260803.png" alt="UT 09" width="520"> |
+| 10 | `force_initial_build` | 单独启用 flag | JSON Boolean 为 `true` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_10_20260803.png" alt="UT 10" width="520"> |
+| 11 | 与普通参数共存及顺序 | 混合 case、`--branch`、`--a3-560t`、二分参数和 glob | 普通参数不受影响，glob 不展开，二分参数正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_11_20260803.png" alt="UT 11" width="520"> |
+| 12 | AOP 前无 case | 输入 `--aop_enabled case-a` | 拒绝并说明 AOP 前必须有 case | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_12_20260803.png" alt="UT 12" width="520"> |
+| 13 | 二分参数位于 AOP 前 | timeout 位于 `--aop_enabled` 前 | 拒绝错误顺序 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_13_20260803.png" alt="UT 13" width="520"> |
+| 14 | pending 值被 flag 截断 | timeout 后直接跟 flag | 报告 requires a value | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_14_20260803.png" alt="UT 14" width="520"> |
+| 15 | good commit 输入结束缺值 | 命令以 `--good-commit` 结束 | 报告 requires a value | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_15_20260803.png" alt="UT 15" width="520"> |
+| 16 | bad commit 输入结束缺值 | 命令以 `--bad-commit` 结束 | 报告 requires a value | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_16_20260803.png" alt="UT 16" width="520"> |
+| 17 | retry 输入结束缺值 | 命令以 retry option 结束 | 报告 requires a value | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_17_20260803.png" alt="UT 17" width="520"> |
+| 18 | barrier timeout 输入结束缺值 | 命令以 barrier option 结束 | 报告 requires a value | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_18_20260803.png" alt="UT 18" width="520"> |
+| 19 | good SHA 非法 | 输入 `xyz` | 拒绝非 7～40 位十六进制 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_19_20260803.png" alt="UT 19" width="520"> |
+| 20 | bad SHA 非法 | 输入 `xyz` | 拒绝非 `HEAD`/SHA | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_20_20260803.png" alt="UT 20" width="520"> |
+| 21 | retry 负数 | 输入 `-1` | 拒绝负数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_21_20260803.png" alt="UT 21" width="520"> |
+| 22 | retry 小数 | 输入 `1.5` | 拒绝非整数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_22_20260803.png" alt="UT 22" width="520"> |
+| 23 | trial timeout 为零 | 输入 `0` | 拒绝非正数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_23_20260803.png" alt="UT 23" width="520"> |
+| 24 | trial timeout 负数 | 输入 `-1` | 拒绝非正数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_24_20260803.png" alt="UT 24" width="520"> |
+| 25 | barrier timeout 为零 | 输入 `0` | 拒绝非正数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_25_20260803.png" alt="UT 25" width="520"> |
+| 26 | 未知 option | 输入 `--unknown-option` | 明确拒绝未知 option | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_26_20260803.png" alt="UT 26" width="520"> |
+| 27 | `native-check` 不暴露 | 从评论传入内部参数 | 按未知参数拒绝 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_27_20260803.png" alt="UT 27" width="520"> |
+| 28 | `no-assume-built-head` 不暴露 | 从评论传入内部参数 | 按未知参数拒绝 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_28_20260803.png" alt="UT 28" width="520"> |
+| 29 | `config-base-path` 不暴露 | 从评论传入内部参数 | 按未知参数拒绝 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_29_20260803.png" alt="UT 29" width="520"> |
+| 30 | 跨层字段契约 | 扫描全部 schedule/reusable/LWS/Shell/argparse | 8 参数逐层存在且命名一致 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_30_20260803.png" alt="UT 30" width="520"> |
+| 31 | 单 JSON dispatch 协议 | 检查评论工作流和 6 个 schedule | dispatch 只传一个 JSON；schedule 全部解包 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_31_20260803.png" alt="UT 31" width="520"> |
+| 32 | 内部参数隔离与系统固定策略 | 同时做不存在与必须存在断言 | 用户入口不暴露，Shell 固定策略保留 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_32_20260803.png" alt="UT 32" width="520"> |
+| 33 | 最终 argparse | 调用真实 `_parse_args` | 最终值和 Python 类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_33_20260803.png" alt="UT 33" width="520"> |
+| 34 | AOP Shell 完整 argv | 执行真实 `aop_process.sh` | 完整 argv 顺序和值精确匹配 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_34_20260803.png" alt="UT 34" width="520"> |
 
 ### 4.1 UT 实现代码与逻辑审查
 
@@ -123,7 +182,7 @@ collected 14 items
 - `tests/ut/tools/bisect/test_auto_bisect.py`
 - `tests/ut/tools/bisect/test_aop_shell_chain.py`
 
-#### 4.1.1 生产解析器调用方式（用例 1～10 的公共前置逻辑）
+#### 4.1.1 生产解析器调用方式（用例 1～29 的公共前置逻辑）
 
 ```python
 def _parser_script() -> str:
@@ -197,17 +256,70 @@ def test_comment_parser_preserves_transport_defaults(tmp_path: Path):
 
 逻辑审查：用例 1 同时断言 case、AOP 开关以及 JSON 中全部 8 个字段和值/类型；用例 2 在不传可选参数时断言完整默认对象，能够发现字段遗漏、默认值漂移以及 Boolean 被错误编码成字符串的问题。
 
-#### 4.1.3 非法参数和内部参数隔离（用例 3～10）
+#### 4.1.3 八个公开参数逐个独立验证及普通参数共存（用例 3～11）
+
+```python
+@pytest.mark.parametrize(
+    ("comment_arg", "json_key", "expected"),
+    [
+        ("--good-commit ABCDEF1", "good_commit", "ABCDEF1"),
+        ("--bad-commit 1234567", "bad_commit", "1234567"),
+        ("--fail-confirm-retries 0", "fail_confirm_retries", "0"),
+        ("--trial-timeout 0.5", "trial_timeout", "0.5"),
+        ("--barrier-timeout 3600", "barrier_timeout", "3600"),
+        ("--no-verify-good", "no_verify_good", True),
+        ("--no-verify-bad", "no_verify_bad", True),
+        ("--force-initial-build", "force_initial_build", True),
+    ],
+)
+def test_comment_parser_transports_each_public_option_independently(
+    tmp_path, comment_arg, json_key, expected
+):
+    result = _run_parser(tmp_path, f"case-a --aop_enabled {comment_arg}")
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = json.loads(_outputs(tmp_path)["bisect_args_json"])
+    assert set(payload) == set(PARAMETERS)
+    assert payload[json_key] == expected
+
+
+def test_comment_parser_keeps_normal_arguments_and_literal_globs(tmp_path):
+    result = _run_parser(
+        tmp_path,
+        "case-a case-* --branch feature/test --a3-560t --aop_enabled "
+        "--trial-timeout 30 case-b --no-verify-good",
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    outputs = _outputs(tmp_path)
+    assert outputs["test_cases"] == "case-a,case-*,case-b"
+    assert outputs["branch"] == "feature/test"
+    payload = json.loads(outputs["bisect_args_json"])
+    assert payload["trial_timeout"] == "30"
+    assert payload["no_verify_good"] is True
+```
+
+逻辑审查：完整参数用例之外，再逐个验证 8 个公开参数，可以精确定位单字段映射错误。每次都断言 JSON key 集合完整，避免单参数正确但其他默认字段被意外删除。共存用例验证普通 case、branch、硬件 flag、二分参数交错排列不会互相吞并，并验证 `set -f` 确实保留 `case-*` 字面量。
+
+#### 4.1.4 非法参数和内部参数隔离（用例 12～29）
 
 ```python
 @pytest.mark.parametrize(
     ("all_args", "message"),
     [
+        ("--aop_enabled case-a", "must appear after at least one test case"),
         ("case-a --trial-timeout 1 --aop_enabled", "must appear after --aop_enabled"),
         ("case-a --aop_enabled --trial-timeout --no-verify-good", "requires a value"),
+        ("case-a --aop_enabled --good-commit", "requires a value"),
+        ("case-a --aop_enabled --bad-commit", "requires a value"),
+        ("case-a --aop_enabled --fail-confirm-retries", "requires a value"),
+        ("case-a --aop_enabled --barrier-timeout", "requires a value"),
         ("case-a --aop_enabled --good-commit xyz", "7-40 character hexadecimal"),
+        ("case-a --aop_enabled --bad-commit xyz", "HEAD or a 7-40 character hexadecimal"),
         ("case-a --aop_enabled --fail-confirm-retries -1", "non-negative integer"),
+        ("case-a --aop_enabled --fail-confirm-retries 1.5", "non-negative integer"),
         ("case-a --aop_enabled --trial-timeout 0", "positive numbers"),
+        ("case-a --aop_enabled --trial-timeout -1", "positive numbers"),
+        ("case-a --aop_enabled --barrier-timeout 0", "positive numbers"),
+        ("case-a --aop_enabled --unknown-option", "unknown option"),
         ("case-a --aop_enabled --native-check since-build", "unknown option"),
         ("case-a --aop_enabled --no-assume-built-head", "unknown option"),
         (
@@ -225,9 +337,9 @@ def test_comment_parser_rejects_invalid_bisect_options(
     assert message in result.stdout
 ```
 
-逻辑审查：每个参数化项不仅要求失败，还断言对应错误原因，避免“因为其他异常碰巧失败”造成假通过。用例 8～10 明确证明三个系统管理参数不能从用户评论入口传入。
+逻辑审查：18 个参数化项覆盖顺序、无 case、option 后缺值、SHA、整数、小数、正数和未知/内部参数。每项不仅要求失败，还断言对应错误原因，避免“因为其他异常碰巧失败”造成假通过。用例 27～29 明确证明三个系统管理参数不能从用户评论入口传入。
 
-#### 4.1.4 跨层字段契约（用例 11）
+#### 4.1.5 跨层字段契约（用例 30）
 
 ```python
 for json_key, (input_name, env_name, cli_name) in PARAMETERS.items():
@@ -255,7 +367,26 @@ for template_name in ("lws.yaml.jinja2", "lws_560t.yaml.jinja2"):
 
 逻辑审查：该用例逐个遍历 8 个参数，覆盖 6 个 schedule workflow、5 个 reusable workflow、两份 LWS 模板、single-node Shell、multi-node Shell 和 `auto_bisect` CLI。任一层字段遗漏或命名不一致都会触发断言。
 
-#### 4.1.5 系统管理参数不对用户暴露（用例 12）
+#### 4.1.6 单 JSON workflow dispatch 协议（用例 31）
+
+```python
+assert "bisect_args_json: ${{ steps.resolve.outputs.bisect_args_json }}" in command_text
+assert command_text.count('-f bisect_args_json="$BISECT_ARGS_JSON"') == 6
+for input_name, _env_name, _cli_name in PARAMETERS.values():
+    assert f"-f {input_name}=" not in command_text
+
+for workflow_name in SCHEDULE_WORKFLOWS:
+    schedule = (workflows / workflow_name).read_text(encoding="utf-8")
+    assert schedule.count("bisect_args_json:") == 1
+    assert "fromJSON(inputs.bisect_args_json || '{}')" in schedule
+    for json_key, (input_name, _env_name, _cli_name) in PARAMETERS.items():
+        assert input_name in schedule
+        assert json_key in schedule
+```
+
+逻辑审查：该用例专门防止 workflow_dispatch 输入数量再次超限。它要求评论工作流的 6 个 dispatch 命令各自只发送一个 `bisect_args_json`，禁止恢复 8 个独立 `-f` 字段，并要求 6 个 schedule workflow 都通过 `fromJSON` 解包。
+
+#### 4.1.7 系统管理参数不对用户暴露（用例 32）
 
 ```python
 assert "native_check" not in command_text
@@ -282,7 +413,7 @@ assert "--config-base-path" in multi_shell
 
 逻辑审查：既检查用户入口和 workflow 不存在内部参数，也检查 Shell 中的系统固定策略仍然存在，避免简单删除全部相关代码也让测试通过。
 
-#### 4.1.6 最终 argparse 映射（用例 13）
+#### 4.1.8 最终 argparse 映射（用例 33）
 
 ```python
 args = _parse_args(
@@ -308,7 +439,7 @@ assert args.force_initial_build is True
 
 逻辑审查：直接调用生产 `tools.bisect.auto_bisect._parse_args`，验证传输末端的字段名、数值转换和 flag 类型，而不是只搜索源码字符串。
 
-#### 4.1.7 真实 AOP Shell argv（用例 14）
+#### 4.1.9 真实 AOP Shell argv（用例 34）
 
 ```python
 subprocess.run(
@@ -349,7 +480,7 @@ assert [line.removeprefix("ARG=") for line in calls[1]] == [
 
 ## 5. 结论
 
-本次参数透传专项 UT 共 14 项，14 项全部通过。仓库内可控链路已经验证：
+本次参数透传专项 UT 共 34 项，34 项全部通过。仓库内可控链路已经验证：
 
 - 评论层能正确解析、校验和拒绝非法参数；
 - 不传新增参数时保持约定默认值；
