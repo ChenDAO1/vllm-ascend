@@ -96,24 +96,24 @@ collected 14 items
 
 ## 4. 逐项过程与结果
 
-以下 14 项是 pytest 参数化展开后的实际执行项。
+以下 14 项是 pytest 参数化展开后的实际执行项。每一项均内嵌本次执行产生的独立截图；截图中的 pytest node ID、进度、被测 HEAD 和退出码可与原始控制台日志交叉核对。
 
-| # | 测试项 | 测试过程 | 预期结果 | 实际结果 |
+| # | 测试项 | 测试过程 | 预期结果 | 实际结果与独立截图 |
 |---:|---|---|---|---|
-| 1 | 完整评论参数生成 JSON | 执行生产评论解析脚本，输入 good/bad、重试、两个超时、两个端点开关和首次构建开关 | 8 个字段全部进入 `bisect_args_json`，字符串和 Boolean 类型正确 | PASS |
-| 2 | 无可选参数保持默认值 | 输入 `case-a --aop_enabled` | good 为空、bad 为 `HEAD`、可选数字为空、三个 flag 为 `false` | PASS |
-| 3 | 二分参数位于 AOP 开关前 | 输入 `case-a --trial-timeout 1 --aop_enabled` | 拒绝并报告参数必须位于 `--aop_enabled` 后 | PASS |
-| 4 | 值参数缺值 | 输入 `case-a --aop_enabled --trial-timeout --no-verify-good` | 拒绝并报告 `--trial-timeout requires a value` | PASS |
-| 5 | good commit 格式非法 | 输入 `--good-commit xyz` | 拒绝非 7～40 位十六进制 SHA | PASS |
-| 6 | retry 为负数 | 输入 `--fail-confirm-retries -1` | 拒绝非负整数以外的值 | PASS |
-| 7 | timeout 为零 | 输入 `--trial-timeout 0` | 拒绝非正数 | PASS |
-| 8 | 用户传入 `--native-check` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS |
-| 9 | 用户传入 `--no-assume-built-head` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS |
-| 10 | 用户传入 `--config-base-path` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS |
-| 11 | 跨传输层字段契约 | 对 6 个 schedule、5 个 reusable workflow、LWS、Shell 和 argparse 逐字段扫描 | 8 个用户参数在每层均存在，JSON/input/env/CLI 命名映射一致 | PASS |
-| 12 | 系统管理参数隔离 | 检查评论协议、JSON、Workflow 和 AOP Shell | 三个内部参数不向用户暴露；native 策略固定，配置路径只由系统传递 | PASS |
-| 13 | `auto_bisect` 最终解析 | 直接向真实 `_parse_args` 传递完整 AOP CLI 参数 | 最终 Namespace 中所有参数的值和类型正确 | PASS |
-| 14 | AOP Shell 完整透传 | 使用 Git Bash 真实运行 `aop_process.sh`，fake Python 捕获 update-table 与 auto-bisect argv | 用户8参数、good/env table、内部配置路径和固定 native 策略无丢失、无拆词 | PASS |
+| 1 | 完整评论参数生成 JSON | 执行生产评论解析脚本，输入 good/bad、重试、两个超时、两个端点开关和首次构建开关 | 8 个字段全部进入 `bisect_args_json`，字符串和 Boolean 类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_01_20260803.png" alt="UT 01 执行截图" width="520"> |
+| 2 | 无可选参数保持默认值 | 输入 `case-a --aop_enabled` | good 为空、bad 为 `HEAD`、可选数字为空、三个 flag 为 `false` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_02_20260803.png" alt="UT 02 执行截图" width="520"> |
+| 3 | 二分参数位于 AOP 开关前 | 输入 `case-a --trial-timeout 1 --aop_enabled` | 拒绝并报告参数必须位于 `--aop_enabled` 后 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_03_20260803.png" alt="UT 03 执行截图" width="520"> |
+| 4 | 值参数缺值 | 输入 `case-a --aop_enabled --trial-timeout --no-verify-good` | 拒绝并报告 `--trial-timeout requires a value` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_04_20260803.png" alt="UT 04 执行截图" width="520"> |
+| 5 | good commit 格式非法 | 输入 `--good-commit xyz` | 拒绝非 7～40 位十六进制 SHA | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_05_20260803.png" alt="UT 05 执行截图" width="520"> |
+| 6 | retry 为负数 | 输入 `--fail-confirm-retries -1` | 拒绝非负整数以外的值 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_06_20260803.png" alt="UT 06 执行截图" width="520"> |
+| 7 | timeout 为零 | 输入 `--trial-timeout 0` | 拒绝非正数 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_07_20260803.png" alt="UT 07 执行截图" width="520"> |
+| 8 | 用户传入 `--native-check` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_08_20260803.png" alt="UT 08 执行截图" width="520"> |
+| 9 | 用户传入 `--no-assume-built-head` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_09_20260803.png" alt="UT 09 执行截图" width="520"> |
+| 10 | 用户传入 `--config-base-path` | 在评论命令中传内部参数 | 按未知参数拒绝，不进入 JSON | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_10_20260803.png" alt="UT 10 执行截图" width="520"> |
+| 11 | 跨传输层字段契约 | 对 6 个 schedule、5 个 reusable workflow、LWS、Shell 和 argparse 逐字段扫描 | 8 个用户参数在每层均存在，JSON/input/env/CLI 命名映射一致 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_11_20260803.png" alt="UT 11 执行截图" width="520"> |
+| 12 | 系统管理参数隔离 | 检查评论协议、JSON、Workflow 和 AOP Shell | 三个内部参数不向用户暴露；native 策略固定，配置路径只由系统传递 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_12_20260803.png" alt="UT 12 执行截图" width="520"> |
+| 13 | `auto_bisect` 最终解析 | 直接向真实 `_parse_args` 传递完整 AOP CLI 参数 | 最终 Namespace 中所有参数的值和类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_13_20260803.png" alt="UT 13 执行截图" width="520"> |
+| 14 | AOP Shell 完整透传 | 使用 Git Bash 真实运行 `aop_process.sh`，fake Python 捕获 update-table 与 auto-bisect argv | 用户8参数、good/env table、内部配置路径和固定 native 策略无丢失、无拆词 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_14_20260803.png" alt="UT 14 执行截图" width="520"> |
 
 ## 5. 结论
 
