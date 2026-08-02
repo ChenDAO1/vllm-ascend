@@ -129,13 +129,67 @@ def test_comment_parser_preserves_transport_defaults(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
+    ("comment_arg", "json_key", "expected"),
+    [
+        ("--good-commit ABCDEF1", "good_commit", "ABCDEF1"),
+        ("--bad-commit 1234567", "bad_commit", "1234567"),
+        ("--fail-confirm-retries 0", "fail_confirm_retries", "0"),
+        ("--trial-timeout 0.5", "trial_timeout", "0.5"),
+        ("--barrier-timeout 3600", "barrier_timeout", "3600"),
+        ("--no-verify-good", "no_verify_good", True),
+        ("--no-verify-bad", "no_verify_bad", True),
+        ("--force-initial-build", "force_initial_build", True),
+    ],
+)
+def test_comment_parser_transports_each_public_option_independently(
+    tmp_path: Path,
+    comment_arg: str,
+    json_key: str,
+    expected: str | bool,
+):
+    result = _run_parser(tmp_path, f"case-a --aop_enabled {comment_arg}")
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = json.loads(_outputs(tmp_path)["bisect_args_json"])
+    assert set(payload) == set(PARAMETERS)
+    assert payload[json_key] == expected
+
+
+def test_comment_parser_keeps_normal_arguments_and_literal_globs(tmp_path: Path):
+    result = _run_parser(
+        tmp_path,
+        "case-a case-* --branch feature/test --a3-560t --aop_enabled "
+        "--trial-timeout 30 case-b --no-verify-good",
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    outputs = _outputs(tmp_path)
+    assert outputs["test_cases"] == "case-a,case-*,case-b"
+    assert outputs["branch"] == "feature/test"
+    assert outputs["aop_enabled"] == "true"
+    payload = json.loads(outputs["bisect_args_json"])
+    assert payload["trial_timeout"] == "30"
+    assert payload["no_verify_good"] is True
+
+
+@pytest.mark.parametrize(
     ("all_args", "message"),
     [
+        ("--aop_enabled case-a", "must appear after at least one test case"),
         ("case-a --trial-timeout 1 --aop_enabled", "must appear after --aop_enabled"),
         ("case-a --aop_enabled --trial-timeout --no-verify-good", "requires a value"),
+        ("case-a --aop_enabled --good-commit", "requires a value"),
+        ("case-a --aop_enabled --bad-commit", "requires a value"),
+        ("case-a --aop_enabled --fail-confirm-retries", "requires a value"),
+        ("case-a --aop_enabled --barrier-timeout", "requires a value"),
         ("case-a --aop_enabled --good-commit xyz", "7-40 character hexadecimal"),
+        ("case-a --aop_enabled --bad-commit xyz", "HEAD or a 7-40 character hexadecimal"),
         ("case-a --aop_enabled --fail-confirm-retries -1", "non-negative integer"),
+        ("case-a --aop_enabled --fail-confirm-retries 1.5", "non-negative integer"),
         ("case-a --aop_enabled --trial-timeout 0", "positive numbers"),
+        ("case-a --aop_enabled --trial-timeout -1", "positive numbers"),
+        ("case-a --aop_enabled --barrier-timeout 0", "positive numbers"),
+        ("case-a --aop_enabled --unknown-option", "unknown option"),
         ("case-a --aop_enabled --native-check since-build", "unknown option"),
         ("case-a --aop_enabled --no-assume-built-head", "unknown option"),
         ("case-a --aop_enabled --config-base-path tests/e2e/nightly/single_node/configs", "unknown option"),
@@ -176,6 +230,23 @@ def test_parameter_contract_is_present_at_every_transport_layer():
         for input_name, env_name, _cli_name in PARAMETERS.values():
             assert template.count(env_name) >= 2
             assert template.count(input_name) >= 2
+
+
+def test_workflow_dispatch_uses_one_json_transport_field():
+    workflows = REPO_ROOT / ".github/workflows"
+    command_text = COMMAND_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "bisect_args_json: ${{ steps.resolve.outputs.bisect_args_json }}" in command_text
+    assert command_text.count('-f bisect_args_json="$BISECT_ARGS_JSON"') == len(SCHEDULE_WORKFLOWS)
+    for input_name, _env_name, _cli_name in PARAMETERS.values():
+        assert f"-f {input_name}=" not in command_text
+
+    for workflow_name in SCHEDULE_WORKFLOWS:
+        schedule = (workflows / workflow_name).read_text(encoding="utf-8")
+        assert schedule.count("bisect_args_json:") == 1
+        assert "fromJSON(inputs.bisect_args_json || '{}')" in schedule
+        for json_key, (input_name, _env_name, _cli_name) in PARAMETERS.items():
+            assert f"{input_name}: ${{{{ fromJSON(inputs.bisect_args_json || '{{}}').{json_key} " in schedule
 
 
 def test_system_managed_options_are_not_user_parameters():
