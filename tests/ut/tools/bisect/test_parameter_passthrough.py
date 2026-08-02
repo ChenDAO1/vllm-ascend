@@ -28,13 +28,6 @@ PARAMETERS = {
         "BISECT_FORCE_INITIAL_BUILD",
         "--force-initial-build",
     ),
-    "no_assume_built_head": (
-        "bisect_no_assume_built_head",
-        "BISECT_NO_ASSUME_BUILT_HEAD",
-        "--no-assume-built-head",
-    ),
-    "native_check": ("bisect_native_check", "BISECT_NATIVE_CHECK", "--native-check"),
-    "config_base_path": ("bisect_config_base_path", "BISECT_CONFIG_BASE_PATH", "--config-base-path"),
 }
 
 SCHEDULE_WORKFLOWS = (
@@ -99,9 +92,7 @@ def test_comment_parser_emits_complete_json_contract(tmp_path: Path):
         tmp_path,
         "case-a --aop_enabled --good-commit abcdef1 --bad-commit 1234567 "
         "--fail-confirm-retries 3 --trial-timeout 120.5 --barrier-timeout 60 "
-        "--no-verify-good --no-verify-bad --force-initial-build "
-        "--no-assume-built-head --native-check since-build "
-        "--config-base-path tests/e2e/models/configs",
+        "--no-verify-good --no-verify-bad --force-initial-build",
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
@@ -117,9 +108,6 @@ def test_comment_parser_emits_complete_json_contract(tmp_path: Path):
         "no_verify_good": True,
         "no_verify_bad": True,
         "force_initial_build": True,
-        "no_assume_built_head": True,
-        "native_check": "since-build",
-        "config_base_path": "tests/e2e/models/configs",
     }
 
 
@@ -137,9 +125,6 @@ def test_comment_parser_preserves_transport_defaults(tmp_path: Path):
         "no_verify_good": False,
         "no_verify_bad": False,
         "force_initial_build": False,
-        "no_assume_built_head": False,
-        "native_check": "",
-        "config_base_path": "",
     }
 
 
@@ -151,8 +136,9 @@ def test_comment_parser_preserves_transport_defaults(tmp_path: Path):
         ("case-a --aop_enabled --good-commit xyz", "7-40 character hexadecimal"),
         ("case-a --aop_enabled --fail-confirm-retries -1", "non-negative integer"),
         ("case-a --aop_enabled --trial-timeout 0", "positive numbers"),
-        ("case-a --aop_enabled --native-check unsafe", "per-commit or since-build"),
-        ("case-a --aop_enabled --config-base-path bad;path", "unsupported characters"),
+        ("case-a --aop_enabled --native-check since-build", "unknown option"),
+        ("case-a --aop_enabled --no-assume-built-head", "unknown option"),
+        ("case-a --aop_enabled --config-base-path tests/e2e/models/configs", "unknown option"),
     ],
 )
 def test_comment_parser_rejects_invalid_bisect_options(tmp_path: Path, all_args: str, message: str):
@@ -190,3 +176,38 @@ def test_parameter_contract_is_present_at_every_transport_layer():
         for input_name, env_name, _cli_name in PARAMETERS.values():
             assert template.count(env_name) >= 2
             assert template.count(input_name) >= 2
+
+
+def test_system_managed_options_are_not_user_parameters():
+    workflows = REPO_ROOT / ".github/workflows"
+    command_text = COMMAND_WORKFLOW.read_text(encoding="utf-8")
+    aop_shell = (REPO_ROOT / "tests/e2e/nightly/scripts/aop_process.sh").read_text(encoding="utf-8")
+    multi_shell = (REPO_ROOT / "tests/e2e/nightly/multi_node/scripts/run.sh").read_text(encoding="utf-8")
+
+    assert "native_check" not in command_text
+    assert "--native-check" not in command_text
+    assert "no_assume_built_head" not in command_text
+    assert "--no-assume-built-head" not in command_text
+    assert "config_base_path" not in command_text
+    assert "--config-base-path" not in command_text
+    for workflow_name in (*SCHEDULE_WORKFLOWS, *REUSABLE_WORKFLOWS):
+        workflow = (workflows / workflow_name).read_text(encoding="utf-8")
+        assert "bisect_native_check" not in workflow
+        assert "BISECT_NATIVE_CHECK" not in workflow
+        assert "bisect_no_assume_built_head" not in workflow
+        assert "BISECT_NO_ASSUME_BUILT_HEAD" not in workflow
+    for template_name in ("lws.yaml.jinja2", "lws_560t.yaml.jinja2"):
+        template = (REPO_ROOT / "tests/e2e/nightly/multi_node/scripts" / template_name).read_text(encoding="utf-8")
+        assert "bisect_native_check" not in template
+        assert "BISECT_NATIVE_CHECK" not in template
+        assert "bisect_no_assume_built_head" not in template
+        assert "BISECT_NO_ASSUME_BUILT_HEAD" not in template
+        assert template.count("BISECT_CONFIG_BASE_PATH") >= 2
+        assert template.count("bisect_config_base_path") >= 2
+
+    assert "BISECT_CMD+=(--native-check since-build)" in aop_shell
+    assert "BISECT_EXTRA_ARGS+=(--native-check since-build)" in multi_shell
+    assert "--no-assume-built-head" not in aop_shell
+    assert "--no-assume-built-head" not in multi_shell
+    assert "--config-base-path" in aop_shell
+    assert "--config-base-path" in multi_shell

@@ -9,7 +9,7 @@
 | `b68bd0ee` | 按 nightly/weekly、SoC、scene 隔离成功基线表，并发安全更新并兼容旧表 |
 | `ec75937d` | 将频率隔离后的 good table 发布为 GitHub Actions Artifact |
 | `390f4bfb` | 记录 vLLM、CANN、torch-npu 环境，并在每个二分候选执行前回放 |
-| `e25ac3ab` | 将 11 个二分参数从 `/nightly`、`/weekly` 评论命令传到 AOP 和二分工具 |
+| `e25ac3ab` | 扩展二分参数透传；当前对用户保留 8 个参数，构建与配置路由策略由 AOP/Workflow 内部管理 |
 | `86110a55` | 将可选参数合并为一个校验后的 `bisect_args_json`，规避 workflow dispatch input 数量限制 |
 
 它们解决三个核心问题：成功基线可能来自不同频率和硬件；历史提交在当前软件环境中可能无法正确复现；原 AOP 入口无法控制端点、超时、重试和构建策略。
@@ -116,9 +116,7 @@ CANN -> torch-npu -> vLLM -> vllm-ascend checkout/build -> pytest
   --good-commit abc1234 \
   --bad-commit def5678 \
   --fail-confirm-retries 3 \
-  --trial-timeout 14400 \
-  --no-assume-built-head \
-  --native-check since-build
+  --trial-timeout 14400
 ```
 
 `/weekly` 使用相同格式。
@@ -133,9 +131,6 @@ CANN -> torch-npu -> vLLM -> vllm-ascend checkout/build -> pytest
 | `--no-verify-good` | 同名 flag | 默认验证 good |
 | `--no-verify-bad` | 同名 flag | 默认验证 bad |
 | `--force-initial-build` | 同名 flag | 默认信任初始构建 |
-| `--no-assume-built-head` | 同名 flag | 默认把容器 HEAD 视为已构建 |
-| `--native-check MODE` | `--native-check` | `per-commit` |
-| `--config-base-path PATH` | `--config-base-path` | workflow/环境默认路径 |
 
 PR 命令先校验 SHA、数字、枚举和安全路径字符，再压缩为一个 JSON input。schedule workflow 使用 `fromJSON` 解包；单节点通过 AOP Shell 位置参数传递，多节点通过 Jinja2/Kubernetes 环境变量传给 leader 和 worker。Shell 使用数组保留参数边界。完整规则见 [BISECT_PARAMS.md](./BISECT_PARAMS.md)。
 
@@ -165,14 +160,14 @@ leader: evaluate -> next round or DONE
 
 ## 8. 构建和 verdict
 
-默认 `--native-check per-commit`：
+AOP 内部固定采用 `native-check=since-build`，该策略不暴露为评论参数。工具会检查距上次成功构建到当前候选提交的累计改动：
 
 - 纯 Python/YAML/Markdown：只 checkout；
 - native/build 文件：重新 editable install vllm-ascend；
 - requirements：重新安装依赖；
 - runtime env 变化：强制使 build baseline 失效。
 
-`since-build` 检查距上次 build 的累计变化，更保守。`force-initial-build` 和 `no-assume-built-head` 用于不信任容器初始二进制的情况。
+这样能够避免二分跳跃时复用过期 `.so`。AOP 默认信任 Nightly 容器 HEAD 已构建，用户如需重建只使用 `force-initial-build`。配置目录由 Workflow 根据测试场景自动传递。底层 CLI 仍保留这些选项用于内部调用和开发调试。
 
 | 信号 | Verdict |
 |---|---|

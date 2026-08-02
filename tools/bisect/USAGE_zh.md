@@ -130,9 +130,7 @@ python -m tools.bisect.auto_bisect \
 
 | 开关 | 默认 | 说明 |
 |---|---|---|
-| `--native-check per-commit` | **per-commit** | 只看当前 commit 自身改动判断(编译最少)。可选 `since-build`:看距上次编译的累计改动(跳跃更安全) |
 | `--force-initial-build` | 关 | 首轮强制全量重编译(默认信任容器已在 HEAD 构建好) |
-| `--no-assume-built-head` | 关 | 不把容器当前 HEAD 当作"已构建" |
 
 > bad 端点(==HEAD)因为容器已构建好,默认是 `already built` 直接跳过编译。
 
@@ -246,6 +244,7 @@ python -m tools.bisect.auto_bisect \
 
 #### `--native-check`
 
+- **定位**:底层 CLI 的内部调试参数，不从 `/nightly`、`/weekly` 评论命令暴露；AOP 固定使用 `since-build`。
 - **作用**:决定"用哪些改动文件"判断是否需要重新编译 vllm-ascend。
 - **取值**:
     - `per-commit`(**默认**):只看**当前 commit 自身**改的文件,命中 C++/native 才编译——编译次数最少。
@@ -260,6 +259,7 @@ python -m tools.bisect.auto_bisect \
 
 #### `--no-assume-built-head`
 
+- **定位**:底层 CLI 的内部调试参数，不从 `/nightly`、`/weekly` 评论命令暴露。用户需要首轮重建时使用 `--force-initial-build`。
 - **作用**:关闭"把容器当前 HEAD 当作已构建基线"的假设。
 - **默认**:关(即默认**启用**该假设)。
 - **何时用**:容器里装的不是 HEAD、或被改过,需要工具不要偷懒跳过首轮编译时。
@@ -322,6 +322,7 @@ python -m tools.bisect.auto_bisect \
 
 #### `--config-base-path`
 
+- **定位**:Workflow 路由和本地调试参数，不从 `/nightly`、`/weekly` 评论命令暴露。
 - **作用**:覆盖 configs 的基准目录,设进环境变量 `CONFIG_BASE_PATH`;主要用于**多机 internal/external DP** 区分配置目录。
 - **默认**:环境变量 `CONFIG_BASE_PATH`。
 - **注意**:路径里含 `external_dp/config` 时,多机会自动选用 external DP 的 pytest 入口。

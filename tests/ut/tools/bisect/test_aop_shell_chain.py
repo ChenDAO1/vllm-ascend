@@ -83,8 +83,6 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
         "true",
         "true",
         "true",
-        "true",
-        "since-build",
         "tests/e2e/models/configs",
     ]
 
@@ -127,7 +125,6 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
         "--no-verify-good",
         "--no-verify-bad",
         "--force-initial-build",
-        "--no-assume-built-head",
         "--native-check",
         "since-build",
         "--config-base-path",

@@ -5,7 +5,7 @@
 本报告覆盖分支 `codex/split-good-table-frequency_ut` 中与 AOP 调用自动二分工具直接相关的提交：
 
 - `390f4bfb`：记录并回放 vLLM、CANN、torch-npu 运行时环境；多节点按轮同步环境。
-- `e25ac3ab`：把 11 个二分参数从 `/nightly`、`/weekly` 命令透传到工作流、Pod、AOP 脚本和 `auto_bisect.py`。
+- `e25ac3ab`：扩展二分参数透传；当前对用户保留 8 个参数，native rebuild、HEAD 构建基线和配置目录由系统内部管理。
 - `86110a55`：把可选参数压缩成一个经过校验的 `bisect_args_json`，避免 GitHub `workflow_dispatch` 的 input 数量上限。
 
 同时纳入其前置依赖 `b68bd0ee`：按 nightly/weekly 与 SoC 拆分 good table，使 AOP 能选择正确的成功基线；`ec75937d` 负责发布对应 artifact。
@@ -40,7 +40,8 @@ PR 评论 /nightly 或 /weekly
 
 | 风险 | 关键契约 | UT 覆盖 |
 |---|---|---|
-| 参数在长链路中丢失或类型改变 | CLI 中 good/bad、重试、超时、端点校验、构建策略、native-check、config path、env table 保持原值 | `test_parse_args_maps_extended_aop_parameters` |
+| 参数在长链路中丢失或类型改变 | CLI 中 good/bad、重试、超时、端点校验、构建策略、config path、env table 保持原值 | `test_parse_args_maps_extended_aop_parameters` |
+| 用户覆盖系统策略 | 评论和 JSON 不暴露 native-check、no-assume-built-head、config-base-path；AOP 固定 native 策略，配置目录仅由 Workflow 内部传递 | `test_system_managed_options_are_not_user_parameters` |
 | 缺省调用改变历史行为 | 未给可选参数时继续使用既有默认值 | 既有 CLI/runner 测试；工作流需 CI 集成验证 |
 | env table 选错版本 | 精确 commit 优先，否则选择同一 case 的最近祖先 | `test_env_table_prefers_exact_commit_row`、`test_env_table_uses_closest_preceding_status_row` |
 | 占位值触发错误安装 | 空值、N/A、unknown、None 均视为未知 | `test_known_rejects_status_table_placeholders` |
@@ -63,9 +64,9 @@ PR 评论 /nightly 或 /weekly
 
 - `test_env_manager.py`：10 项，覆盖占位值、CANN 版本读取、切换顺序、空目标、CANN 缺失和 torch-npu 安装命令。
 - `test_runner.py`：2 项，覆盖环境变化使构建基线失效，以及 multi-node leader 环境失败后的 SKIP 广播。
-- `test_auto_bisect.py`：将原参数测试扩展为 11 个 AOP 参数与 env table 的完整 CLI 映射。
+- `test_auto_bisect.py`：覆盖底层 CLI 参数与 env table 的完整映射；native-check 仅作为内部调试能力保留。
 - `test_full_chain.py`：使用四个真实 Git 提交和真实 CSV 表，贯通 CLI、good baseline、环境继承、端点验证、二分收敛及最终报告；仅 mock 构建与 NPU case 执行。
-- `test_aop_shell_chain.py`：Windows Git Bash/Linux Bash 下真实运行 AOP Shell，验证 11 个二分控制参数及 good/env table 参数无丢失、无错误拆词地到达 Python CLI。
+- `test_aop_shell_chain.py`：Windows Git Bash/Linux Bash 下真实运行 AOP Shell，验证 8 个用户控制参数、内部配置目录及 good/env table 无丢失，并验证 AOP 固定追加 `--native-check since-build`。
 - `test_parameter_passthrough.py`：直接提取并执行 workflow 中的生产 Bash 评论解析逻辑，覆盖完整/默认 JSON、7 类非法输入，并检查 6 个 schedule、5 个 reusable workflow、2 个 LWS 模板、Shell 与 argparse 的字段一致性。
 
 既有 56 项继续覆盖二分中点选择、候选提交、构建决策、good/env table、协调器、runner 入口、状态恢复、报告与 verdict。
@@ -84,8 +85,9 @@ python -m pytest -q `
 结果：
 
 ```text
-....................................................................     [100%]
-80 passed in 13.32s
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 14.07s
 ```
 
 静态检查：`git diff --check` 通过，无空白错误。
@@ -98,4 +100,4 @@ python -m pytest -q `
 - LWS 共享卷上的多 worker barrier、SKIP/DONE/release-file 时序和 leader 异常退出恢复。
 - NPU 上完整的“首次失败 -> AOP -> 二分 -> first bad report”物理闭环；当前全链路 UT 已覆盖仓库内可控逻辑，但 mock 了构建和 NPU case 执行。
 
-建议 CI 最少增加两条 smoke：一条 single-node 使用伪 runner 验证 11 参数最终 argv；一条双 worker 使用临时共享目录验证 RUN、SKIP、DONE 三种命令时序。真实 NPU nightly 再承担环境切换和模型执行验证。
+建议 CI 最少增加两条 smoke：一条 single-node 使用伪 runner 验证 8 个用户参数及系统管理策略的最终 argv；一条双 worker 使用临时共享目录验证 RUN、SKIP、DONE 三种命令时序。真实 NPU nightly 再承担环境切换和模型执行验证。

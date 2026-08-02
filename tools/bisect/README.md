@@ -34,12 +34,12 @@ trigger (case FAIL)
   parsed from the `(#NNNN)` subject trailer for display.
 * **Whole-YAML granularity**: nightly cannot select a single case, so each trial
   runs the entire `CONFIG_YAML_PATH` file; FAIL if any case fails.
-* **Compile only on C++ changes**: by default (`--native-check per-commit`) a
-  rebuild happens only when that commit's own diff touches
+* **Compile only on C++ changes**: AOP uses the internal `since-build` policy: a
+  rebuild happens when changes since the last successful build touch
   `*.cpp/*.cc/*.cu/*.h/*.hpp/*.cuh`, `csrc/**`, `CMakeLists.txt`, or `setup.py`.
   Pure `.py`/yaml changes are picked up live by the editable install.
-  `--native-check since-build` widens the check to all changes since the last
-  build (safer across bisect jumps).
+  The low-level CLI keeps `--native-check` for development experiments, but the
+  AOP user interface does not expose it.
 * **Runtime env follows the status table**: the paired vLLM, CANN and torch-npu
   versions are read from `env_table.csv`. If the current container env differs,
   auto-bisect switches it at runtime before building/testing the candidate. vLLM
@@ -139,11 +139,12 @@ python -m tools.bisect.auto_bisect \
     --coord-dir /shared/nightly_bisect/coord
 ```
 
-Common flags: `--good-commit` (skip the table), `--soc`,
-`--config-base-path`
-(internal/external DP configs), `--native-check {per-commit,since-build}`,
+Common user-facing flags: `--good-commit` (skip the table), `--soc`,
 `--force-initial-build`, `--fail-confirm-retries`, `--no-verify-good`,
 `--no-verify-bad`, `--trial-timeout-s`. Full reference: see `USAGE_zh.md` §9.
+`--config-base-path` and `--no-assume-built-head` remain low-level CLI options
+for workflow routing and local development; the AOP comment interface does not
+expose them.
 
 ## Outputs
 

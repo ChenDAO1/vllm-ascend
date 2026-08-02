@@ -31,27 +31,31 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
   --good-commit 0123456 \
   --bad-commit 89abcde \
   --fail-confirm-retries 3 \
-  --trial-timeout 14400 \
-  --native-check since-build
+  --trial-timeout 14400
 ```
 
 支持 nightly/weekly 的 A2、A3、A3-560T、310P 调度入口，以及下游支持 AOP 的普通单节点、model accuracy 和多节点 reusable workflow。
 
 ## 4. 功能列表
 
-| 特性 | 评论参数 | 效果 |
-|---|---|---|
-| 指定 good 端点 | `--good-commit SHA` | 跳过 good table 查询和 AOP commit-age gate |
-| 指定 bad 端点 | `--bad-commit SHA\|HEAD` | 替换默认失败端点 `HEAD` |
-| FAIL 重试 | `--fail-confirm-retries N` | FAIL 后额外运行 N 次，出现非 FAIL 则按 flaky SKIP |
-| 单轮超时 | `--trial-timeout SEC` | 控制每个候选 pytest 的超时时间 |
-| 多节点屏障超时 | `--barrier-timeout SEC` | 控制 leader 等待各节点 ready 的时间 |
-| 跳过 good 验证 | `--no-verify-good` | 不在搜索前复跑 good 端点 |
-| 跳过 bad 验证 | `--no-verify-bad` | 不在搜索前复跑 bad 端点 |
-| 首轮强制构建 | `--force-initial-build` | 不复用容器初始 build baseline |
-| 不信任 HEAD 已构建 | `--no-assume-built-head` | 不将当前 HEAD 预置为已构建提交 |
-| native 检测策略 | `--native-check MODE` | 选择 `per-commit` 或 `since-build` |
-| 配置根目录 | `--config-base-path PATH` | 覆盖 `CONFIG_BASE_PATH` 并影响 runner 入口选择 |
+| 特性 | 评论参数 | 最终默认值/行为 | 指定参数后的效果 |
+|---|---|---|---|
+| 指定 good 端点 | `--good-commit SHA` | 空；从 good table 查询 | 跳过 good table 查询和 AOP commit-age gate |
+| 指定 bad 端点 | `--bad-commit SHA\|HEAD` | `HEAD`（工具层可由 `VLLM_ASCEND_REF` 提供） | 使用指定提交替换默认失败端点 |
+| FAIL 重试 | `--fail-confirm-retries N` | `1` | FAIL 后额外运行 N 次，出现非 FAIL 则按 flaky SKIP |
+| 单轮超时 | `--trial-timeout SEC` | `7200` 秒 | 设置每个候选 pytest 的超时时间 |
+| 多节点屏障超时 | `--barrier-timeout SEC` | `3600` 秒 | 设置 leader 等待各节点 ready 的时间 |
+| 跳过 good 验证 | `--no-verify-good` | `false`；默认复跑 good 端点 | 跳过搜索前的 good 端点验证 |
+| 跳过 bad 验证 | `--no-verify-bad` | `false`；默认复跑 bad 端点 | 跳过搜索前的 bad 端点验证 |
+| 首轮强制构建 | `--force-initial-build` | `false`；默认复用容器初始 build baseline | 首轮不复用初始构建，执行 clean rebuild |
+
+以下能力由系统内部管理，不作为评论命令参数暴露：
+
+- AOP 单节点和多节点固定使用 `native-check=since-build`，避免二分跳跃复用过期 `.so`；
+- AOP 默认信任 Nightly 容器 HEAD 已构建；用户需要重建时只使用 `--force-initial-build`；
+- `config-base-path` 由 Workflow 根据 single-node、model accuracy、internal/external DP 场景设置并在内部传给 runner。
+
+底层 `auto_bisect.py` CLI 仍保留这些选项，仅用于 Workflow 内部调用、本地执行和底层策略测试。
 
 ## 5. 使用约束
 
@@ -97,8 +101,6 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
 | trial timeout | 空 | `7200` 秒 |
 | barrier timeout | 空 | `3600` 秒 |
 | 四个 Boolean flag | `false` | 不添加对应 CLI flag |
-| native check | 空 | `per-commit` |
-| config base path | 空 | `CONFIG_BASE_PATH` 或 runner 默认路径 |
 
 可选值在上游保持空值，避免 workflow 重复实现工具默认值；最终默认值由 `auto_bisect.py` 统一管理。`bad_commit` 是例外，评论命令明确使用 `HEAD` 作为 dispatch 默认值。
 
@@ -114,7 +116,7 @@ PR comment tokens
        fromJSON(...)
        map to bisect_* reusable inputs
   -> single-node
-       workflow inputs -> aop_process.sh $9/$14-$23
+       workflow inputs -> aop_process.sh $9/$14-$21
        -> BISECT_CMD array -> auto_bisect argv
   -> multi-node
        workflow inputs -> jinja2 -D
@@ -139,7 +141,7 @@ AOP Shell 会在执行前打印最终 `python -m tools.bisect.auto_bisect ...` �
 
 参数协议必须满足：
 
-1. 11 个控制参数可从 `/nightly`、`/weekly` 无损到达最终进程。
+1. 8 个用户控制参数可从 `/nightly`、`/weekly` 无损到达最终进程。
 2. 评论层拒绝非法输入，未校验数据不得进入 workflow dispatch。
 3. workflow dispatch 只占用一个可选二分 input。
 4. 单节点和多节点使用相同语义与默认值。
@@ -158,11 +160,8 @@ AOP Shell 会在执行前打印最终 `python -m tools.bisect.auto_bisect ...` �
 | `no_verify_good` | `--no-verify-good` | boolean | `false` | flag |
 | `no_verify_bad` | `--no-verify-bad` | boolean | `false` | flag |
 | `force_initial_build` | `--force-initial-build` | boolean | `false` | flag |
-| `no_assume_built_head` | `--no-assume-built-head` | boolean | `false` | flag |
-| `native_check` | `--native-check` | string | `""` | `per-commit` 或 `since-build` |
-| `config_base_path` | `--config-base-path` | string | `""` | `^[a-zA-Z0-9_./-]+$` |
 
-数值有意编码为 string，因为 workflow inputs 和 Shell 环境变量均以字符串传递；最终由 argparse 转成 `int` 或 `float`。四个 flag 必须编码成未加引号的 JSON Boolean。
+数值有意编码为 string，因为 workflow inputs 和 Shell 环境变量均以字符串传递；最终由 argparse 转成 `int` 或 `float`。三个 flag 必须编码成未加引号的 JSON Boolean。
 
 ## 12. JSON 协议
 
@@ -177,10 +176,7 @@ AOP Shell 会在执行前打印最终 `python -m tools.bisect.auto_bisect ...` �
   "barrier_timeout": "",
   "no_verify_good": false,
   "no_verify_bad": false,
-  "force_initial_build": false,
-  "no_assume_built_head": false,
-  "native_check": "",
-  "config_base_path": ""
+  "force_initial_build": false
 }
 ```
 
@@ -229,11 +225,8 @@ for WORD in $ALL_ARGS; do ...; done
 | `no_verify_good` | `bisect_no_verify_good` | `BISECT_NO_VERIFY_GOOD` / `$18` | `--no-verify-good` |
 | `no_verify_bad` | `bisect_no_verify_bad` | `BISECT_NO_VERIFY_BAD` / `$19` | `--no-verify-bad` |
 | `force_initial_build` | `bisect_force_initial_build` | `BISECT_FORCE_INITIAL_BUILD` / `$20` | `--force-initial-build` |
-| `no_assume_built_head` | `bisect_no_assume_built_head` | `BISECT_NO_ASSUME_BUILT_HEAD` / `$21` | `--no-assume-built-head` |
-| `native_check` | `bisect_native_check` | `BISECT_NATIVE_CHECK` / `$22` | `--native-check` |
-| `config_base_path` | `bisect_config_base_path` | `BISECT_CONFIG_BASE_PATH` / `$23` | `--config-base-path` |
 
-`$N` 仅适用于单节点 `aop_process.sh`；多节点全部使用 `BISECT_*` 环境变量。
+用户参数的 `$N` 仅适用于单节点 `aop_process.sh`；多节点全部使用 `BISECT_*` 环境变量。内部 `config-base-path` 不属于 JSON 协议，由 schedule workflow 直接设置 reusable input，单节点使用 `$21`，多节点使用 `BISECT_CONFIG_BASE_PATH`。
 
 ## 15. 调度入口矩阵
 
@@ -259,7 +252,8 @@ for WORD in $ALL_ARGS; do ...; done
 | `$1`～`$8` | failure metadata、tests/config、scene |
 | `$9` | bad commit |
 | `$10`～`$13` | num nodes、coord dir、case name、SoC |
-| `$14`～`$23` | good commit 及其余 9 个可选控制值 |
+| `$14`～`$20` | good commit 及其余 6 个用户可选控制值 |
+| `$21` | Workflow 内部配置根目录 |
 
 Shell 必须使用数组：
 
@@ -286,7 +280,7 @@ reusable inputs
 
 要求：
 
-- leader 和所有 worker 的 11 个参数一致；
+- leader 和所有 worker 的 8 个用户参数一致；
 - Jinja2 值使用 `tojson`，保证 YAML 字符串安全；
 - worker 使用与 leader 相同的 `build_bisect_extra_args()`；
 - Boolean 仅在字符串严格等于 `true` 时生成 flag；
@@ -300,11 +294,15 @@ reusable inputs
 fail_confirm_retries = 1
 trial_timeout_s      = 7200.0
 barrier_timeout_s    = 3600.0
-native_check         = per-commit
 verify_good          = true
 verify_bad           = true
-assume_built_head    = true
 force_initial_build  = false
+```
+
+AOP 的内部 native rebuild 策略不属于 transport payload，单节点 `aop_process.sh` 和多节点 `run.sh` 均固定向底层 CLI 添加：
+
+```text
+--native-check since-build
 ```
 
 修改默认值时优先修改 `auto_bisect.py` 并同步本文档，不在多个 schedule workflow 中复制非必要默认值。
@@ -387,7 +385,7 @@ force_initial_build  = false
 4. 通过 `ALL_ARGS` 注入评论 token，通过临时 `GITHUB_OUTPUT` 读取真实 outputs。
 5. 将 `bisect_args_json` 反序列化，断言字符串、数字字符串和 Boolean 类型。
 
-完整参数场景同时传入 11 个参数，期望 JSON 为：
+完整参数场景同时传入 8 个用户参数，期望 JSON 为：
 
 ```json
 {
@@ -398,16 +396,13 @@ force_initial_build  = false
   "barrier_timeout": "60",
   "no_verify_good": true,
   "no_verify_bad": true,
-  "force_initial_build": true,
-  "no_assume_built_head": true,
-  "native_check": "since-build",
-  "config_base_path": "tests/e2e/models/configs"
+  "force_initial_build": true
 }
 ```
 
-默认场景只传 `case-a --aop_enabled`，验证 bad 为 `HEAD`、四个 flag 为 `false`、其他可选字段为空。
+默认场景只传 `case-a --aop_enabled`，验证 bad 为 `HEAD`、三个 flag 为 `false`、其他可选字段为空。
 
-非法输入采用参数化测试，覆盖：父开关顺序错误、缺值、非法 SHA、负数 retry、零 timeout、非法 native mode 和不安全 path。
+非法输入采用参数化测试，覆盖：父开关顺序错误、缺值、非法 SHA、负数 retry、零 timeout，以及用户传入系统管理的 `--native-check`、`--no-assume-built-head`、`--config-base-path` 时按未知参数拒绝。
 
 ### 22.3 协议一致性过程
 
@@ -437,19 +432,20 @@ python -m pytest -q `
 
 ### 22.6 结果
 
-本次新增 10 个参数透传用例：
+参数透传专项包含 12 个用例：
 
 - 完整 JSON：1 个；
 - 默认 JSON：1 个；
-- 非法输入：7 个；
-- 全层协议一致性：1 个。
+- 非法输入：8 个；
+- 全层协议一致性：1 个；
+- 系统管理参数不对用户暴露、AOP 固定 native 策略且配置路径仅内部传递：1 个。
 
 完整 bisect UT 执行结果：
 
 ```text
-........................................................................ [ 90%]
-........                                                                 [100%]
-80 passed in 13.32s
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 14.07s
 ```
 
 专项文件 Ruff 检查通过，Ruff format 确认已格式化，`git diff --check` 无空白错误。全部测试无 skip。
