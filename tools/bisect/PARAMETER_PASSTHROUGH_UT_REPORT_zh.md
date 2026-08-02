@@ -51,9 +51,9 @@ PR 评论 /nightly 或 /weekly
 | 执行日期 | 2026-08-03（Asia/Shanghai） |
 | 仓库 | `C:\project\tmp\chendao\vllm-ascend` |
 | 分支 | `codex/split-good-table-frequency_ut` |
-| 被测 HEAD | `18754945` |
-| 系统 | Windows 10 |
-| Python | 3.14.5 |
+| 被测 HEAD | `f4bcef6f` |
+| 系统 | Windows 11（10.0.26200） |
+| Python | 3.12.13 |
 | pytest | 9.1.1 |
 
 执行命令：
@@ -61,6 +61,7 @@ PR 评论 /nightly 或 /weekly
 ```powershell
 python -m pytest -vv -p no:cacheprovider `
   --confcutdir=tests/ut/tools/bisect `
+  --basetemp=.tmp-parameter-passthrough `
   tests/ut/tools/bisect/test_parameter_passthrough.py `
   tests/ut/tools/bisect/test_auto_bisect.py::test_parse_args_maps_extended_aop_parameters `
   tests/ut/tools/bisect/test_aop_shell_chain.py::test_aop_shell_forwards_complete_bisect_contract
@@ -70,15 +71,15 @@ python -m pytest -vv -p no:cacheprovider `
 
 ```text
 collected 14 items
-14 passed in 10.36s
+14 passed in 8.50s
 ```
 
 原始控制台日志保存在
-[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)，报告中的结果截图由该日志生成。
+[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)。两张截图均由本次 pytest 原始 stdout 同源生成：第一张保留执行时间、仓库、分支、HEAD、命令、退出码和汇总，第二张展示 14 个 pytest 展开项的逐项结果；截图内容可由原始日志复核。
 
 ### 3.1 实际执行步骤
 
-1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `18754945`。
+1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `f4bcef6f`。
 2. 使用 `--confcutdir=tests/ut/tools/bisect` 隔离与本专项无关的顶层 NPU/Torch fixture。
 3. 显式选择 `test_parameter_passthrough.py`，只运行评论解析、默认值、异常校验和跨层协议检查。
 4. 单独选择 `test_parse_args_maps_extended_aop_parameters`，验证透传结束后的真实 argparse 结果。
