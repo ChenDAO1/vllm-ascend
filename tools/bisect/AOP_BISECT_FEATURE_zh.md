@@ -132,7 +132,7 @@ CANN -> torch-npu -> vLLM -> vllm-ascend checkout/build -> pytest
 | `--no-verify-bad` | 同名 flag | 默认验证 bad |
 | `--force-initial-build` | 同名 flag | 默认信任初始构建 |
 
-PR 命令先校验 SHA、数字、枚举和安全路径字符，再压缩为一个 JSON input。schedule workflow 使用 `fromJSON` 解包；单节点通过 AOP Shell 位置参数传递，多节点通过 Jinja2/Kubernetes 环境变量传给 leader 和 worker。Shell 使用数组保留参数边界。完整规则见 [BISECT_PARAMS.md](./BISECT_PARAMS.md)。
+PR 命令先校验 SHA、数字和枚举，再压缩为一个 JSON input。schedule workflow 使用 `fromJSON` 解包；单节点通过 AOP Shell 位置参数传递，多节点通过 Jinja2/Kubernetes 环境变量传给 leader 和 worker。Shell 使用数组保留参数边界。完整规则见 [参数透传功能特性与技术规格](./PARAMETER_PASSTHROUGH_FEATURE_SPEC_zh.md)。
 
 ## 7. 单节点和多节点
 
@@ -209,4 +209,4 @@ AOP 内部固定采用 `native-check=since-build`，该策略不暴露为评论�
 | `runner.py` | 单/多节点执行 |
 | `coordinator.py` / `worker_agent.py` | 多节点同步和 worker 循环 |
 
-操作步骤见 [USAGE_zh.md](./USAGE_zh.md)，参数细节见 [BISECT_PARAMS.md](./BISECT_PARAMS.md)，测试设计与结果见 [UT_REPORT_zh.md](./UT_REPORT_zh.md)。
+操作步骤见 [USAGE_zh.md](./USAGE_zh.md)，参数细节见 [参数透传功能特性与技术规格](./PARAMETER_PASSTHROUGH_FEATURE_SPEC_zh.md)，测试设计与结果见 [UT_REPORT_zh.md](./UT_REPORT_zh.md)。

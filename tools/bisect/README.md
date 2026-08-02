@@ -6,8 +6,7 @@ known-good commit and the failing commit. It reuses the existing nightly launch
 entries so the bisect reproduces the real nightly environment.
 
 > 中文功能总览见 [`AOP_BISECT_FEATURE_zh.md`](./AOP_BISECT_FEATURE_zh.md)，
-> 操作步骤见 [`USAGE_zh.md`](./USAGE_zh.md)，参数扩展见
-> [`BISECT_PARAMS.md`](./BISECT_PARAMS.md)，UT 设计与结果见
+> 操作步骤见 [`USAGE_zh.md`](./USAGE_zh.md)，UT 设计与结果见
 > [`UT_REPORT_zh.md`](./UT_REPORT_zh.md)。
 
 参数透传的功能特性与技术规格见
