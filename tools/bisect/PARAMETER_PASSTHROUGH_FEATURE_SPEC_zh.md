@@ -12,7 +12,7 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
 - 可按用例稳定性调整 FAIL 确认次数，降低 flaky 误判。
 - 可为大模型或多节点场景调整 trial/barrier 超时。
 - 可在可信场景跳过端点验证，减少额外运行轮次。
-- 可控制首次构建和 native 检测策略，平衡速度与可靠性。
+- 可按需强制首次构建；native 检测策略由 AOP 内部统一管理。
 - 未提供参数时保持原行为，不影响现有命令。
 
 ## 3. 支持范围
@@ -33,7 +33,7 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
   --trial-timeout 14400
 ```
 
-支持 nightly/weekly 的 A2、A3、A3-560T、310P 调度入口，以及下游支持 AOP 的单节点和多节点 reusable workflow。
+支持 nightly/weekly 的 A2、A3、A3-560T、310P 调度入口，以及下游支持 AOP 的普通单节点、model accuracy 和多节点 reusable workflow。
 
 ## 4. 功能列表
 
@@ -52,7 +52,7 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
 
 - AOP 单节点和多节点固定使用 `native-check=since-build`，避免二分跳跃复用过期 `.so`；
 - AOP 默认信任 Nightly 容器 HEAD 已构建；用户需要重建时只使用 `--force-initial-build`；
-- `config-base-path` 仅作为 Workflow 内部字段传给 runner，不属于用户功能参数。
+- `config-base-path` 仅由 Workflow 根据普通 nightly/weekly、model accuracy 和多节点场景在内部传给 runner，不属于用户功能参数；runner 使用它选择与原失败任务一致的测试入口。
 
 底层 `auto_bisect.py` CLI 仍保留这些选项，仅用于 Workflow 内部调用、本地执行和底层策略测试。
 
