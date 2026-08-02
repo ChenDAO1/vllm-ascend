@@ -138,7 +138,7 @@ def test_comment_parser_preserves_transport_defaults(tmp_path: Path):
         ("case-a --aop_enabled --trial-timeout 0", "positive numbers"),
         ("case-a --aop_enabled --native-check since-build", "unknown option"),
         ("case-a --aop_enabled --no-assume-built-head", "unknown option"),
-        ("case-a --aop_enabled --config-base-path tests/e2e/models/configs", "unknown option"),
+        ("case-a --aop_enabled --config-base-path tests/e2e/nightly/single_node/configs", "unknown option"),
     ],
 )
 def test_comment_parser_rejects_invalid_bisect_options(tmp_path: Path, all_args: str, message: str):

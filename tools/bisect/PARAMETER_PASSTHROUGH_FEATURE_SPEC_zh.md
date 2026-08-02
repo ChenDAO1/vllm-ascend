@@ -13,7 +13,6 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
 - 可为大模型或多节点场景调整 trial/barrier 超时。
 - 可在可信场景跳过端点验证，减少额外运行轮次。
 - 可控制首次构建和 native 检测策略，平衡速度与可靠性。
-- 可覆盖配置根目录，使不同 single-node、model accuracy、internal/external DP 入口复用同一套二分工具。
 - 未提供参数时保持原行为，不影响现有命令。
 
 ## 3. 支持范围
@@ -34,7 +33,7 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
   --trial-timeout 14400
 ```
 
-支持 nightly/weekly 的 A2、A3、A3-560T、310P 调度入口，以及下游支持 AOP 的普通单节点、model accuracy 和多节点 reusable workflow。
+支持 nightly/weekly 的 A2、A3、A3-560T、310P 调度入口，以及下游支持 AOP 的单节点和多节点 reusable workflow。
 
 ## 4. 功能列表
 
@@ -53,7 +52,7 @@ AOP 自动二分原先只能按照固定默认值运行。出现大模型启动�
 
 - AOP 单节点和多节点固定使用 `native-check=since-build`，避免二分跳跃复用过期 `.so`；
 - AOP 默认信任 Nightly 容器 HEAD 已构建；用户需要重建时只使用 `--force-initial-build`；
-- `config-base-path` 由 Workflow 根据 single-node、model accuracy、internal/external DP 场景设置并在内部传给 runner。
+- `config-base-path` 仅作为 Workflow 内部字段传给 runner，不属于用户功能参数。
 
 底层 `auto_bisect.py` CLI 仍保留这些选项，仅用于 Workflow 内部调用、本地执行和底层策略测试。
 
@@ -132,7 +131,7 @@ AOP Shell 会在执行前打印最终 `python -m tools.bisect.auto_bisect ...` �
 
 ## 9. 已知边界
 
-- 评论命令按空白拆分 token，不支持带空格的参数值；`config-base-path` 也明确禁止空格。
+- 评论命令按空白拆分 token，不支持带空格的参数值。
 - good/bad 评论参数只接受 SHA 或 `HEAD`，不接受分支名和 PR 号；直接调用 `auto_bisect.py` 时可使用更宽泛的 Git ref。
 - 参数透传不改变 AOP classify、good table 或环境回放语义。
 - workflow 文件由默认分支执行，PR 中仅修改 workflow 时，需要合入默认分支后评论命令才能使用新逻辑。
@@ -335,7 +334,7 @@ AOP 的内部 native rebuild 策略不属于 transport payload，单节点 `aop_
 - 默认命令与改动前行为一致；
 - 每个值参数可单独透传并被 argparse 解析；
 - 每个 flag 可单独启用，未启用时不出现；
-- 11 参数组合可通过 single-node 和 multi-node 路径；
+- 8 个用户参数组合可通过 single-node 和 multi-node 路径，3 个系统管理参数保持内部控制；
 - 显式 good 能跳过 good table age gate；
 - bad 不会被下游硬编码 `HEAD` 覆盖。
 

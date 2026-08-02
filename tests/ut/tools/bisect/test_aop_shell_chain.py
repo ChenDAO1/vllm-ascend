@@ -83,7 +83,7 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
         "true",
         "true",
         "true",
-        "tests/e2e/models/configs",
+        "tests/e2e/nightly/single_node/configs",
     ]
 
     subprocess.run(
@@ -128,5 +128,5 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
         "--native-check",
         "since-build",
         "--config-base-path",
-        "tests/e2e/models/configs",
+        "tests/e2e/nightly/single_node/configs",
     ]
