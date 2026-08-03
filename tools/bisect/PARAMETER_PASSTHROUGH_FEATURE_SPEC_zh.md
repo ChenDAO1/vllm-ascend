@@ -457,3 +457,75 @@ python -m pytest -q `
 - 多节点 NPU 集群的并发时序。
 
 这些场景属于集成测试或 NPU E2E；UT 通过源码行为执行和跨层契约检查覆盖仓库内可确定的参数透传逻辑。
+
+## 23. pytest-driven 单节点二分重放
+
+### 23.1 适用场景
+
+nightly/weekly 单节点矩阵允许两种用例定义：
+
+```yaml
+# YAML-driven
+- name: qwen3-32b-int8
+  config_file_path: Qwen3-32B-Int8.yaml
+
+# pytest-driven
+- name: qwen3-30b-acc
+  tests: tests/e2e/weekly/single_node/models/test_qwen3_30b_acc.py
+```
+
+重放模式由 Workflow 已解析出的用例字段自动决定，不增加用户评论参数，也不进入 `bisect_args_json`：
+
+```text
+config_file_path 非空、tests 为空 -> --config-yaml，YAML-driven
+tests 非空、config_file_path 为空 -> --test-path，pytest-driven
+两者均空或同时非空               -> AOP Shell 明确失败
+```
+
+用户命令保持不变：
+
+```text
+/nightly qwen3-30b-acc --aop_enabled
+```
+
+用户不能在评论中传入 `--test-path`。该选项与 `--config-base-path`、`--native-check` 一样，仅用于 Workflow/AOP 到底层二分工具的内部调用。
+
+### 23.2 内部传递链路
+
+```text
+nightly/weekly test_config.tests
+  -> reusable single-node workflow inputs.tests
+  -> aop_process.sh 的 $4 TESTS
+  -> auto_bisect --test-path
+  -> BisectInput.test_path
+  -> SingleNodeRunner._test_command
+  -> python -m pytest -sv <原始 tests 路径>
+```
+
+YAML-driven 链路保持原样：
+
+```text
+test_config.config_file_path
+  -> aop_process.sh 的 $5 CONFIG
+  -> auto_bisect --config-yaml
+  -> CONFIG_YAML_PATH / 原 YAML 测试入口
+```
+
+### 23.3 约束与安全检查
+
+- `--config-yaml` 与 `--test-path` 在 argparse 中互斥且必须恰好提供一个；
+- `--test-path` 仅允许 single-node，multi-node 仍必须使用 YAML；
+- 路径必须是仓库相对路径、扩展名为 `.py`，并且解析后位于 `tests/e2e/`；
+- `SingleNodeRunner` 在 pytest-driven 模式不设置 `CONFIG_YAML_PATH`，避免继承环境污染；
+- AOP Shell 对两种来源同时存在或同时为空均立即报错，避免重放错误入口；
+- pytest-driven 路径是系统从用例矩阵取得的，不属于 8 个用户参数。
+
+### 23.4 UT 验证点
+
+- argparse 接受合法内部 `--test-path`；
+- argparse 拒绝无重放来源及同时提供两个来源；
+- 拒绝 `../outside.py`、非 `tests/e2e/` 路径和非 `.py` 文件；
+- multi-node 拒绝 pytest-driven 重放；
+- `SingleNodeRunner` 精确生成原始 pytest 命令且不设置 `CONFIG_YAML_PATH`；
+- 真实执行 `aop_process.sh`，确认最终 argv 包含 `--test-path` 且不包含 `--config-yaml`；
+- 评论解析器和 `bisect_args_json` 中不存在 `test_path`，证明用户接口未扩大。

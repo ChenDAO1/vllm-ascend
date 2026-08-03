@@ -90,7 +90,7 @@ PR 评论 /nightly 或 /weekly
 | 执行日期 | 2026-08-03（Asia/Shanghai） |
 | 仓库 | `C:\project\tmp\chendao\vllm-ascend` |
 | 分支 | `codex/split-good-table-frequency_ut` |
-| 被测 HEAD | `1404541f` |
+| 被测 HEAD | `81905069` |
 | 系统 | Windows 11（10.0.26200） |
 | Python | 3.12.13 |
 | pytest | 9.1.1 |
@@ -109,33 +109,33 @@ python -m pytest -vv -p no:cacheprovider `
 执行结果：
 
 ```text
-collected 34 items
-34 passed in 19.48s
+collected 43 items
+43 passed in 34.59s
 ```
 
 原始控制台日志保存在
-[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)。汇总截图和 34 张逐项截图均由本次 pytest 原始 stdout 同源生成；截图内容可由原始日志复核。
+[`test_evidence/parameter_passthrough_ut_console_20260803.txt`](./test_evidence/parameter_passthrough_ut_console_20260803.txt)。汇总截图和 43 张逐项截图均由本次 pytest 原始 stdout 同源生成；截图内容可由原始日志复核。
 
 ### 3.1 实际执行步骤
 
-1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `1404541f`。
+1. 进入 `_ut` 分支仓库并确认被测 HEAD 为 `81905069`。
 2. 使用 `--confcutdir=tests/ut/tools/bisect` 隔离与本专项无关的顶层 NPU/Torch fixture。
 3. 显式选择 `test_parameter_passthrough.py`，只运行评论解析、默认值、异常校验和跨层协议检查。
 4. 单独选择 `test_parse_args_maps_extended_aop_parameters`，验证透传结束后的真实 argparse 结果。
 5. 单独选择 `test_aop_shell_forwards_complete_bisect_contract`，通过 Git Bash 执行生产 `aop_process.sh`；脚本内部调用 fake Python，记录并断言最终 argv。
-6. pytest 收集 34 个参数化展开项，逐项执行，最终返回码为 0。
+6. pytest 收集 43 个参数化展开项，逐项执行，最终返回码为 0。
 
 执行命令、Python/pytest版本、收集数量和最终结果截图：
 
 ![参数透传专项UT执行命令与汇总](./test_evidence/parameter_passthrough_ut_execution_20260803.png)
 
-34 个用例逐项执行结果汇总截图：
+43 个用例逐项执行结果汇总截图：
 
 ![参数透传专项UT逐项结果](./test_evidence/parameter_passthrough_ut_cases_20260803.png)
 
 ## 4. 逐项过程与结果
 
-以下 34 项是 pytest 参数化展开后的实际执行项。每一项均内嵌本次执行产生的独立截图；截图中的 pytest node ID、进度、被测 HEAD 和退出码可与原始控制台日志交叉核对。
+以下 43 项是 pytest 参数化展开后的实际执行项。每一项均内嵌本次执行产生的独立截图；截图中的 pytest node ID、进度、被测 HEAD 和退出码可与原始控制台日志交叉核对。
 
 | # | 测试项 | 测试过程 | 预期结果 | 实际结果与独立截图 |
 |---:|---|---|---|---|
@@ -173,6 +173,15 @@ collected 34 items
 | 32 | 内部参数隔离与系统固定策略 | 同时做不存在与必须存在断言 | 用户入口不暴露，Shell 固定策略保留 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_32_20260803.png" alt="UT 32" width="520"> |
 | 33 | 最终 argparse | 调用真实 `_parse_args` | 最终值和 Python 类型正确 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_33_20260803.png" alt="UT 33" width="520"> |
 | 34 | AOP Shell 完整 argv | 执行真实 `aop_process.sh` | 完整 argv 顺序和值精确匹配 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_34_20260803.png" alt="UT 34" width="520"> |
+| 35 | 内部 pytest 路径解析 | 向真实 argparse 传 `--test-path` | `config_yaml=None`，完整保存 `test_path` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_35_20260803.png" alt="UT 35" width="520"> |
+| 36 | 缺少重放来源 | 不传 YAML 和 pytest 路径 | argparse 明确拒绝 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_36_20260803.png" alt="UT 36" width="520"> |
+| 37 | 同时传两种重放来源 | 同时传 `--config-yaml` 和 `--test-path` | 互斥组明确拒绝 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_37_20260803.png" alt="UT 37" width="520"> |
+| 38 | 路径逃逸 | 输入 `../outside.py` | 拒绝仓库外路径 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_38_20260803.png" alt="UT 38" width="520"> |
+| 39 | 非 e2e 路径 | 输入 `tests/unit/not-e2e.py` | 拒绝非 `tests/e2e/` 路径 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_39_20260803.png" alt="UT 39" width="520"> |
+| 40 | 非 Python 文件 | 输入 `tests/e2e/not-python.txt` | 拒绝非 `.py` 文件 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_40_20260803.png" alt="UT 40" width="520"> |
+| 41 | multi-node 使用 pytest 路径 | multi-node 输入 `test_path` | 明确拒绝，仅 single-node 支持 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_41_20260803.png" alt="UT 41" width="520"> |
+| 42 | Runner 生成 pytest 重放命令 | 构造 `BisectInput(test_path=...)` | 精确生成原 pytest 命令且不设置 YAML 环境 | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_42_20260803.png" alt="UT 42" width="520"> |
+| 43 | AOP Shell 自动选择 pytest 模式 | 真实执行 Shell，TESTS 非空、CONFIG 为空 | 最终 argv 含 `--test-path` 且无 `--config-yaml` | PASS<br><img src="./test_evidence/parameter_passthrough_ut_case_43_20260803.png" alt="UT 43" width="520"> |
 
 ### 4.1 UT 实现代码与逻辑审查
 
@@ -478,9 +487,98 @@ assert [line.removeprefix("ARG=") for line in calls[1]] == [
 
 逻辑审查：执行的是生产 `aop_process.sh`。fake Python 不参与参数组装，只把 Shell 最终调用的每个 argv 原样写入文件；UT 对完整 argv 列表做顺序和值的精确相等断言，因此可以发现参数丢失、多传、错序或 Shell 拆词。
 
+#### 4.1.10 pytest-driven 自动重放（用例 35～43）
+
+pytest-driven 不是用户参数。用户仍只输入 case 名和 `--aop_enabled`；系统从 nightly/weekly 矩阵已有的 `tests` 字段自动取得路径。UT 分别验证入口、互斥、安全边界、runner 和真实 Shell。
+
+CLI 使用互斥组保证重放来源恰好一个：
+
+```python
+replay = p.add_mutually_exclusive_group(required=True)
+replay.add_argument("--config-yaml", ...)
+replay.add_argument("--test-path", ...)
+```
+
+合法内部路径和互斥行为：
+
+```python
+def test_parse_args_accepts_internal_pytest_replay_path():
+    args = _parse_args([
+        "--scene", "single_node",
+        "--test-path", "tests/e2e/weekly/single_node/models/test_case.py",
+    ])
+    assert args.config_yaml is None
+    assert args.test_path == "tests/e2e/weekly/single_node/models/test_case.py"
+
+
+@pytest.mark.parametrize("replay_args", [
+    [],
+    ["--config-yaml", "case.yaml", "--test-path", "tests/e2e/test_case.py"],
+])
+def test_parse_args_requires_exactly_one_replay_source(replay_args):
+    with pytest.raises(SystemExit):
+        _parse_args(["--scene", "single_node", *replay_args])
+```
+
+路径安全和场景边界：
+
+```python
+@pytest.mark.parametrize("test_path", [
+    "../outside.py",
+    "tests/unit/not-e2e.py",
+    "tests/e2e/not-python.txt",
+])
+def test_main_rejects_unsafe_internal_pytest_replay_path(tmp_path, test_path):
+    with pytest.raises(SystemExit, match="repository-relative Python file under tests/e2e"):
+        main(["--scene", "single_node", "--test-path", test_path,
+              "--repo-dir", str(tmp_path)])
+
+
+def test_resolve_num_nodes_rejects_pytest_replay_for_multi_node(tmp_path):
+    args = argparse.Namespace(
+        num_nodes=None, scene=SCENE_MULTI, config_base_path=None,
+        config_yaml=None, test_path="tests/e2e/test_case.py",
+    )
+    with pytest.raises(SystemExit, match="only supported for single-node"):
+        _resolve_num_nodes(args, tmp_path)
+```
+
+Runner 精确选择原 pytest 路径，并确认不污染 YAML 环境：
+
+```python
+inp = BisectInput(
+    scene="single_node",
+    config_yaml=None,
+    test_path="tests/e2e/weekly/single_node/models/test_case.py",
+    bad_commit="bad",
+)
+runner = SingleNodeRunner(inp, BisectOptions(repo_dir=tmp_path), builder=None)
+assert runner._test_command() == [
+    "python", "-m", "pytest", "-sv",
+    "tests/e2e/weekly/single_node/models/test_case.py",
+]
+assert "CONFIG_YAML_PATH" not in runner._base_env()
+```
+
+真实 AOP Shell 测试以 `TESTS` 非空、`CONFIG` 为空调用生产脚本，用 fake Python 捕获最终 argv：
+
+```python
+test_path = "tests/e2e/weekly/single_node/models/test_qwen3_30b_acc.py"
+subprocess.run(
+    [bash, "tests/e2e/nightly/scripts/aop_process.sh", *args],
+    cwd=repo, env=env, check=True, capture_output=True, text=True,
+)
+auto_bisect_args = captured_python_argv[-1]
+assert auto_bisect_args[auto_bisect_args.index("--test-path") + 1] == test_path
+assert "--config-yaml" not in auto_bisect_args
+assert auto_bisect_args[auto_bisect_args.index("--name") + 1] == "qwen3-30b-acc"
+```
+
+逻辑审查：用例 35～41验证内部 CLI 的输入模型与安全边界；用例 42验证候选 commit 每轮实际生成的 pytest 命令；用例 43真实执行 AOP Shell，证明 nightly `tests` 字段会自动转成 `--test-path`。评论解析隔离用例同时断言 `test_path`/`--test-path` 不存在于用户评论解析器和 `bisect_args_json`，因此没有扩大用户接口。
+
 ## 5. 结论
 
-本次参数透传专项 UT 共 34 项，34 项全部通过。仓库内可控链路已经验证：
+本次参数透传及 pytest-driven 内部重放专项 UT 共 43 项，43 项全部通过。仓库内可控链路已经验证：
 
 - 评论层能正确解析、校验和拒绝非法参数；
 - 不传新增参数时保持约定默认值；
@@ -488,6 +586,9 @@ assert [line.removeprefix("ARG=") for line in calls[1]] == [
 - 3 个系统管理参数不会暴露给评论用户；
 - AOP Shell 能把参数组装为 `auto_bisect` 最终 CLI；
 - 底层 argparse 能接收正确的值与类型。
+- pytest-driven single-node 用例能由系统自动选择原始测试路径进行候选 commit 重放；
+- `--test-path` 不向评论用户暴露，并限制在仓库内 `tests/e2e/*.py`；
+- YAML 与 pytest 重放来源互斥，multi-node 不接受 pytest 重放。
 
 ## 6. 尚未覆盖的边界
 
