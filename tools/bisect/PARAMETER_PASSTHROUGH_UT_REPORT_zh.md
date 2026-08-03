@@ -551,3 +551,28 @@ python -m pytest -q `
 同时执行 Ruff 和 `git diff --check`，均通过。首次在受限 Windows 临时目录执行时，
 pytest 因无法创建 `tmp_path` 报 `PermissionError`；改用明确可写的 `--basetemp`
 后全部通过。该失败属于测试环境权限，不是被测功能失败，完整最终结果以上述 47 项为准。
+
+## 8. Weekly 多节点配置根目录回归（2026-08-04）
+
+Weekly-A3 的 external DP 与 internal DP 使用独立于 nightly 的 YAML 目录。修复前，
+正常测试的 `config_base_path` 正确，但 `bisect_config_base_path` 为空，导致
+`auto_bisect` 回退搜索 nightly 默认目录，无法从 Weekly YAML 推导 `num_nodes`。
+
+修复后由 Workflow 内部固定复用对应目录，不增加评论参数：
+
+```text
+external DP -> tests/e2e/weekly/multi_node/external_dp/config
+internal DP -> tests/e2e/weekly/multi_node/internal_dp/config
+```
+
+新增 `test_weekly_multi_node_bisect_reuses_each_test_config_root`，逐一断言每种 DP
+入口的正常测试目录和二分目录相同，并确认只有不需要覆盖目录的入口继续使用空值。
+
+执行结果：
+
+```text
+..................................                                       [100%]
+34 passed in 28.27s
+```
+
+Ruff 与 `git diff --check` 同时通过。

@@ -296,3 +296,18 @@ def test_single_node_aop_capture_is_limited_to_yaml_driven_cases():
         workflow = (workflows / workflow_name).read_text(encoding="utf-8")
         assert "inputs.aop_single_enabled && inputs.config_file_path != ''" in workflow
         assert "inputs.config_file_path != '' || inputs.tests != ''" not in workflow
+
+
+def test_weekly_multi_node_bisect_reuses_each_test_config_root():
+    workflow = (
+        REPO_ROOT / ".github/workflows/schedule_weekly_test_a3.yaml"
+    ).read_text(encoding="utf-8")
+
+    for config_root in (
+        "tests/e2e/weekly/multi_node/external_dp/config",
+        "tests/e2e/weekly/multi_node/internal_dp/config",
+    ):
+        assert f"config_base_path: {config_root}" in workflow
+        assert f"bisect_config_base_path: {config_root}" in workflow
+
+    assert workflow.count("bisect_config_base_path: ''") == 1
