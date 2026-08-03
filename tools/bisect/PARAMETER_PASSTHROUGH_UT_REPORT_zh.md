@@ -643,3 +643,12 @@ python -m pytest -q --confcutdir=tests/ut/tools/bisect `
 ```
 
 同时执行 Ruff 与 `git diff --check`，均通过。该结果证明仓库内 pytest-driven 的路径选择、安全校验、命令构造、环境恢复和 AOP Shell 传递逻辑符合上述契约；真实 NPU 候选提交执行仍由 Linux/NPU CI 验证。
+
+随后按最终范围删除 accuracy 专用 runner 分支及其 UT，并恢复 accuracy workflow 到基线。再次执行相同三个测试文件，最终结果为：
+
+```text
+...........................                                              [100%]
+27 passed in 2.03s
+```
+
+用例数减少一项仅因为删除了 `test_single_node_runner_selects_accuracy_test_from_model_type`；普通 nightly/weekly 的 pytest-driven 覆盖没有减少。
