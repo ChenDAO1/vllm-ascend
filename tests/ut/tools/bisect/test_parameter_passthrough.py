@@ -34,7 +34,6 @@ SCHEDULE_WORKFLOWS = (
     "schedule_nightly_test_a2.yaml",
     "schedule_nightly_test_a3.yaml",
     "schedule_nightly_test_a3_560t.yaml",
-    "schedule_weekly_test_a2.yaml",
     "schedule_weekly_test_a3.yaml",
     "schedule_weekly_test_310p.yaml",
 )
@@ -42,7 +41,6 @@ SCHEDULE_WORKFLOWS = (
 REUSABLE_WORKFLOWS = (
     "_e2e_nightly_single_node.yaml",
     "_e2e_nightly_single_node_560t.yaml",
-    "_e2e_nightly_single_node_models.yaml",
     "_e2e_nightly_multi_node.yaml",
     "_e2e_nightly_multi_node_560t.yaml",
 )
@@ -284,5 +282,17 @@ def test_system_managed_options_are_not_user_parameters():
     assert "--no-assume-built-head" not in multi_shell
     assert "--config-base-path" in aop_shell
     assert "--config-base-path" in multi_shell
-    assert "--test-path" in aop_shell
+    assert "BISECT_CMD+=(--test-path" not in aop_shell
     assert "BISECT_EXTRA_ARGS+=(--test-path" not in multi_shell
+
+
+def test_single_node_aop_capture_is_limited_to_yaml_driven_cases():
+    workflows = REPO_ROOT / ".github/workflows"
+
+    for workflow_name in (
+        "_e2e_nightly_single_node.yaml",
+        "_e2e_nightly_single_node_560t.yaml",
+    ):
+        workflow = (workflows / workflow_name).read_text(encoding="utf-8")
+        assert "inputs.aop_single_enabled && inputs.config_file_path != ''" in workflow
+        assert "inputs.config_file_path != '' || inputs.tests != ''" not in workflow

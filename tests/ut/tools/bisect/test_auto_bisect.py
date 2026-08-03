@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.bisect.auto_bisect import Bisector, _parse_args, _resolve_num_nodes, _validate_test_path, main
+from tools.bisect.auto_bisect import Bisector, _parse_args, _resolve_num_nodes
 from tools.bisect.config import SCENE_MULTI, BisectInput, BisectOptions
 
 
@@ -58,86 +58,6 @@ def test_parse_args_maps_extended_aop_parameters():
     assert args.native_check == "since-build"
     assert args.config_base_path == "custom/configs"
     assert args.env_table == "custom/env.csv"
-
-
-def test_parse_args_accepts_internal_pytest_replay_path():
-    args = _parse_args(
-        [
-            "--scene",
-            "single_node",
-            "--test-path",
-            "tests/e2e/weekly/single_node/models/test_case.py",
-        ]
-    )
-
-    assert args.config_yaml is None
-    assert args.test_path == "tests/e2e/weekly/single_node/models/test_case.py"
-
-
-@pytest.mark.parametrize(
-    "replay_args",
-    [
-        [],
-        ["--config-yaml", "case.yaml", "--test-path", "tests/e2e/test_case.py"],
-    ],
-)
-def test_parse_args_requires_exactly_one_replay_source(replay_args: list[str]):
-    with pytest.raises(SystemExit):
-        _parse_args(["--scene", "single_node", *replay_args])
-
-
-@pytest.mark.parametrize(
-    "test_path",
-    ["../outside.py", "tests/unit/not-e2e.py", "tests/e2e/not-python.txt"],
-)
-def test_main_rejects_unsafe_internal_pytest_replay_path(tmp_path: Path, test_path: str):
-    with pytest.raises(SystemExit, match="repository-relative Python file, pytest node ID, or directory"):
-        main(
-            [
-                "--scene",
-                "single_node",
-                "--test-path",
-                test_path,
-                "--repo-dir",
-                str(tmp_path),
-            ]
-        )
-
-
-@pytest.mark.parametrize("kind", ["file", "directory", "node_id"])
-def test_validate_pytest_replay_accepts_e2e_file_directory_and_node_id(tmp_path: Path, kind: str):
-    e2e = tmp_path / "tests/e2e/nightly/single_node"
-    e2e.mkdir(parents=True)
-    test_file = e2e / "test_case.py"
-    test_file.write_text("", encoding="utf-8")
-    test_path = {
-        "file": "tests/e2e/nightly/single_node/test_case.py",
-        "directory": "tests/e2e/nightly/single_node",
-        "node_id": "tests/e2e/nightly/single_node/test_case.py::test_example",
-    }[kind]
-
-    _validate_test_path(tmp_path, test_path)
-
-
-def test_validate_pytest_replay_rejects_parent_traversal(tmp_path: Path):
-    outside = tmp_path / "outside.py"
-    outside.write_text("", encoding="utf-8")
-
-    with pytest.raises(SystemExit, match="under tests/e2e"):
-        _validate_test_path(tmp_path, "tests/e2e/../../outside.py")
-
-
-def test_resolve_num_nodes_rejects_pytest_replay_for_multi_node(tmp_path: Path):
-    args = argparse.Namespace(
-        num_nodes=None,
-        scene=SCENE_MULTI,
-        config_base_path=None,
-        config_yaml=None,
-        test_path="tests/e2e/test_case.py",
-    )
-
-    with pytest.raises(SystemExit, match="only supported for single-node"):
-        _resolve_num_nodes(args, tmp_path)
 
 
 def _bisector_with_good_table(

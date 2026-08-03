@@ -26,28 +26,6 @@ def test_base_env_includes_case_and_config_base(tmp_path: Path):
     assert env["CONFIG_BASE_PATH"] == "configs"
 
 
-def test_single_node_runner_replays_pytest_driven_path(tmp_path: Path):
-    inp = BisectInput(
-        scene="single_node",
-        config_yaml=None,
-        test_path="tests/e2e/weekly/single_node/models/test_case.py",
-        bad_commit="bad",
-    )
-    runner = SingleNodeRunner(inp, BisectOptions(repo_dir=tmp_path), builder=None)  # type: ignore[arg-type]
-
-    assert runner._test_command() == [
-        "python",
-        "-m",
-        "pytest",
-        "-sv",
-        "tests/e2e/weekly/single_node/models/test_case.py",
-        "--ignore=tests/e2e/nightly/single_node/ops/singlecard_ops/test_fused_moe.py",
-    ]
-    env = runner._base_env()
-    assert "CONFIG_YAML_PATH" not in env
-    assert env["VLLM_WORKER_MULTIPROC_METHOD"] == "spawn"
-    assert env["VLLM_USE_MODELSCOPE"] == "True"
-    assert env["LD_LIBRARY_PATH"].startswith("/usr/local/lib:")
 def test_multi_node_runner_selects_external_dp_test_path(tmp_path: Path):
     inp = BisectInput(
         scene="multi_node",
