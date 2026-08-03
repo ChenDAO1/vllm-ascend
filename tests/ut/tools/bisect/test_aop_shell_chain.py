@@ -40,6 +40,8 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
     fake_python.write_text(
         "#!/bin/sh\n"
         "printf 'CALL\\n' >> \"$AOP_CAPTURE\"\n"
+        "printf 'ENV=%s|%s|%s\\n' \"$VLLM_WORKER_MULTIPROC_METHOD\" "
+        '"$VLLM_USE_MODELSCOPE" "$VLLM_CI_RUNNER" >> "$AOP_CAPTURE"\n'
         'for arg in "$@"; do printf \'ARG=%s\\n\' "$arg" >> "$AOP_CAPTURE"; done\n',
         encoding="utf-8",
     )
@@ -97,7 +99,7 @@ def test_aop_shell_forwards_complete_bisect_contract(tmp_path: Path):
 
     calls = [block.splitlines() for block in capture.read_text(encoding="utf-8").split("CALL\n") if block]
     assert len(calls) == 2
-    assert [line.removeprefix("ARG=") for line in calls[1]] == [
+    assert [line.removeprefix("ARG=") for line in calls[1] if line.startswith("ARG=")] == [
         "-m",
         "tools.bisect.auto_bisect",
         "--scene",
@@ -144,6 +146,8 @@ def test_aop_shell_selects_pytest_driven_replay_from_tests_path(tmp_path: Path):
     fake_python.write_text(
         "#!/bin/sh\n"
         "printf 'CALL\\n' >> \"$AOP_CAPTURE\"\n"
+        "printf 'ENV=%s|%s|%s\\n' \"$VLLM_WORKER_MULTIPROC_METHOD\" "
+        '"$VLLM_USE_MODELSCOPE" "$VLLM_CI_RUNNER" >> "$AOP_CAPTURE"\n'
         'for arg in "$@"; do printf \'ARG=%s\\n\' "$arg" >> "$AOP_CAPTURE"; done\n',
         encoding="utf-8",
     )
@@ -191,7 +195,8 @@ def test_aop_shell_selects_pytest_driven_replay_from_tests_path(tmp_path: Path):
     )
 
     calls = [block.splitlines() for block in capture.read_text(encoding="utf-8").split("CALL\n") if block]
-    auto_bisect_args = [line.removeprefix("ARG=") for line in calls[-1]]
+    auto_bisect_args = [line.removeprefix("ARG=") for line in calls[-1] if line.startswith("ARG=")]
+    assert "ENV=spawn|True|runner-a3" in calls[-1]
     assert auto_bisect_args[:2] == ["-m", "tools.bisect.auto_bisect"]
     assert auto_bisect_args[auto_bisect_args.index("--test-path") + 1] == test_path
     assert "--config-yaml" not in auto_bisect_args

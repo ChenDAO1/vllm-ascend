@@ -587,7 +587,7 @@ assert auto_bisect_args[auto_bisect_args.index("--name") + 1] == "qwen3-30b-acc"
 - AOP Shell 能把参数组装为 `auto_bisect` 最终 CLI；
 - 底层 argparse 能接收正确的值与类型。
 - pytest-driven single-node 用例能由系统自动选择原始测试路径进行候选 commit 重放；
-- `--test-path` 不向评论用户暴露，并限制在仓库内 `tests/e2e/*.py`；
+- `--test-path` 不向评论用户暴露，并限制在仓库内 `tests/e2e` 的测试文件、目录或 pytest node ID；
 - YAML 与 pytest 重放来源互斥，multi-node 不接受 pytest 重放。
 
 ## 6. 尚未覆盖的边界
@@ -600,3 +600,46 @@ assert auto_bisect_args[auto_bisect_args.index("--name") + 1] == "qwen3-30b-acc"
 - 真实 NPU case 失败后触发 AOP 并执行二分的物理闭环。
 
 这些属于集成/E2E边界，不影响本报告对仓库内参数解析和透传协议的 UT 结论。
+
+## 7. pytest-driven 完整重放修复专项回归（2026-08-03）
+
+### 7.1 范围
+
+本轮只覆盖普通 nightly/weekly single-node 的 pytest-driven AOP。model accuracy 使用独立工作流，行为特殊，明确不在本轮修改和结论范围内。
+
+### 7.2 修改后的重放契约
+
+1. `tests` 由工作流内部传给 `aop_process.sh`，再转换为内部 `--test-path`，用户不能在 PR 评论中直接设置它；
+2. `--test-path` 接受 `tests/e2e` 下的 `.py` 文件、目录和 pytest node ID；
+3. 解析真实目标路径后执行边界检查，拒绝绝对路径、父目录穿越和 `tests/e2e` 外目标；
+4. 候选提交使用原 `tests` 值执行 pytest，并保留原工作流的 `test_fused_moe.py` ignore 规则；
+5. 重放恢复 `VLLM_WORKER_MULTIPROC_METHOD=spawn`、`VLLM_USE_MODELSCOPE=True`、`VLLM_CI_RUNNER=<runner>` 和 `/usr/local/lib` 动态库路径；
+6. YAML-driven 路径及 multi-node 路径保持不变。
+
+### 7.3 新增或更新的 UT 逻辑
+
+- `test_validate_pytest_replay_accepts_e2e_file_directory_and_node_id`：真实创建临时 `tests/e2e` 文件与目录，分别验证文件、目录、node ID 均通过校验；
+- `test_validate_pytest_replay_rejects_parent_traversal`：构造 `tests/e2e/../../outside.py`，验证解析后越界即拒绝；
+- `test_main_rejects_unsafe_internal_pytest_replay_path`：验证仓库外、非 e2e 和非测试目标被拒绝；
+- `test_single_node_runner_replays_pytest_driven_path`：逐项断言 pytest argv、ignore 参数及重放环境；
+- `test_aop_shell_selects_pytest_driven_replay_from_tests_path`：通过 Git Bash 真实执行生产 `aop_process.sh`，fake Python 只负责记录最终 argv 和环境，断言 `--test-path`、模式互斥及 `spawn|True|runner-a3`。
+
+### 7.4 执行过程与结果
+
+执行命令：
+
+```powershell
+python -m pytest -q --confcutdir=tests/ut/tools/bisect `
+  tests/ut/tools/bisect/test_auto_bisect.py `
+  tests/ut/tools/bisect/test_runner.py `
+  tests/ut/tools/bisect/test_aop_shell_chain.py
+```
+
+首次执行结果为 `26 passed, 2 failed`。两个失败均来自 UT 捕获桩：环境记录被加入错误的 fake Python 实例，且旧 argv 断言没有过滤新增的 `ENV=` 记录。修正测试桩和断言后重新执行：
+
+```text
+............................                                             [100%]
+28 passed in 4.27s
+```
+
+同时执行 Ruff 与 `git diff --check`，均通过。该结果证明仓库内 pytest-driven 的路径选择、安全校验、命令构造、环境恢复和 AOP Shell 传递逻辑符合上述契约；真实 NPU 候选提交执行仍由 Linux/NPU CI 验证。

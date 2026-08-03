@@ -41,8 +41,13 @@ def test_single_node_runner_replays_pytest_driven_path(tmp_path: Path):
         "pytest",
         "-sv",
         "tests/e2e/weekly/single_node/models/test_case.py",
+        "--ignore=tests/e2e/nightly/single_node/ops/singlecard_ops/test_fused_moe.py",
     ]
-    assert "CONFIG_YAML_PATH" not in runner._base_env()
+    env = runner._base_env()
+    assert "CONFIG_YAML_PATH" not in env
+    assert env["VLLM_WORKER_MULTIPROC_METHOD"] == "spawn"
+    assert env["VLLM_USE_MODELSCOPE"] == "True"
+    assert env["LD_LIBRARY_PATH"].startswith("/usr/local/lib:")
 
 
 def test_single_node_runner_selects_accuracy_test_from_model_type(tmp_path: Path):

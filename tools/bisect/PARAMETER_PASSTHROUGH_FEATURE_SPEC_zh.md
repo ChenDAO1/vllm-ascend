@@ -515,8 +515,9 @@ test_config.config_file_path
 
 - `--config-yaml` 与 `--test-path` 在 argparse 中互斥且必须恰好提供一个；
 - `--test-path` 仅允许 single-node，multi-node 仍必须使用 YAML；
-- 路径必须是仓库相对路径、扩展名为 `.py`，并且解析后位于 `tests/e2e/`；
-- `SingleNodeRunner` 在 pytest-driven 模式不设置 `CONFIG_YAML_PATH`，避免继承环境污染；
+- 路径必须是仓库相对路径，解析后位于 `tests/e2e/`；允许 `.py` 文件、测试目录和 pytest node ID；
+- `SingleNodeRunner` 在 pytest-driven 模式不设置 `CONFIG_YAML_PATH`，并恢复原工作流的 `spawn`、ModelScope、`LD_LIBRARY_PATH` 和 `test_fused_moe.py` ignore 规则；
+- `aop_process.sh` 从工作流已有的 runner 输入设置 `VLLM_CI_RUNNER`，不增加用户参数；
 - AOP Shell 对两种来源同时存在或同时为空均立即报错，避免重放错误入口；
 - pytest-driven 路径是系统从用例矩阵取得的，不属于 8 个用户参数。
 
@@ -524,8 +525,8 @@ test_config.config_file_path
 
 - argparse 接受合法内部 `--test-path`；
 - argparse 拒绝无重放来源及同时提供两个来源；
-- 拒绝 `../outside.py`、非 `tests/e2e/` 路径和非 `.py` 文件；
+- 接受 `tests/e2e/` 下的 `.py` 文件、测试目录和 pytest node ID；拒绝父目录穿越、绝对路径、非 `tests/e2e/` 路径和非测试目标；
 - multi-node 拒绝 pytest-driven 重放；
-- `SingleNodeRunner` 精确生成原始 pytest 命令且不设置 `CONFIG_YAML_PATH`；
-- 真实执行 `aop_process.sh`，确认最终 argv 包含 `--test-path` 且不包含 `--config-yaml`；
+- `SingleNodeRunner` 精确生成原始 pytest 命令、环境和 ignore 规则，且不设置 `CONFIG_YAML_PATH`；
+- 真实执行 `aop_process.sh`，确认最终 argv 包含 `--test-path`、不包含 `--config-yaml`，并继承 `VLLM_CI_RUNNER`；
 - 评论解析器和 `bisect_args_json` 中不存在 `test_path`，证明用户接口未扩大。
