@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.bisect.auto_bisect import Bisector, _parse_args, _resolve_num_nodes
+from tools.bisect.auto_bisect import Bisector, _parse_args, _resolve_num_nodes, main
 from tools.bisect.config import SCENE_MULTI, BisectInput, BisectOptions
 
 
@@ -84,6 +84,37 @@ def test_parse_args_accepts_internal_pytest_replay_path():
 def test_parse_args_requires_exactly_one_replay_source(replay_args: list[str]):
     with pytest.raises(SystemExit):
         _parse_args(["--scene", "single_node", *replay_args])
+
+
+@pytest.mark.parametrize(
+    "test_path",
+    ["../outside.py", "tests/unit/not-e2e.py", "tests/e2e/not-python.txt"],
+)
+def test_main_rejects_unsafe_internal_pytest_replay_path(tmp_path: Path, test_path: str):
+    with pytest.raises(SystemExit, match="repository-relative Python file under tests/e2e"):
+        main(
+            [
+                "--scene",
+                "single_node",
+                "--test-path",
+                test_path,
+                "--repo-dir",
+                str(tmp_path),
+            ]
+        )
+
+
+def test_resolve_num_nodes_rejects_pytest_replay_for_multi_node(tmp_path: Path):
+    args = argparse.Namespace(
+        num_nodes=None,
+        scene=SCENE_MULTI,
+        config_base_path=None,
+        config_yaml=None,
+        test_path="tests/e2e/test_case.py",
+    )
+
+    with pytest.raises(SystemExit, match="only supported for single-node"):
+        _resolve_num_nodes(args, tmp_path)
 
 
 def _bisector_with_good_table(

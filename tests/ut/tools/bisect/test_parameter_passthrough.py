@@ -261,6 +261,8 @@ def test_system_managed_options_are_not_user_parameters():
     assert "--no-assume-built-head" not in command_text
     assert "config_base_path" not in command_text
     assert "--config-base-path" not in command_text
+    assert "test_path" not in command_text
+    assert "--test-path" not in command_text
     for workflow_name in (*SCHEDULE_WORKFLOWS, *REUSABLE_WORKFLOWS):
         workflow = (workflows / workflow_name).read_text(encoding="utf-8")
         assert "bisect_native_check" not in workflow
@@ -282,3 +284,5 @@ def test_system_managed_options_are_not_user_parameters():
     assert "--no-assume-built-head" not in multi_shell
     assert "--config-base-path" in aop_shell
     assert "--config-base-path" in multi_shell
+    assert "--test-path" in aop_shell
+    assert "BISECT_EXTRA_ARGS+=(--test-path" not in multi_shell
